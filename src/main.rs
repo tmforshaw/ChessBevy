@@ -78,7 +78,7 @@ fn setup(
             if PieceEnum::Empty as usize != board.tiles[i][j] as usize {
                 let (x, y) = board_to_pixel_coords(i, j);
 
-                commands.spawn((
+                let entity = commands.spawn((
                     SpriteSheetBundle {
                         texture: texture.clone(),
                         atlas: TextureAtlas {
