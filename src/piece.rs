@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
-use crate::board::{board_to_pixel_coords, pixel_to_board_coords};
+use crate::board::{board_to_pixel_coords, pixel_to_board_coords, Board};
 
 pub const PIECE_AMT: usize = 6;
 pub const COLOUR_AMT: usize = 2;
@@ -11,7 +11,7 @@ pub const PIECE_HEIGHT: f32 = 60.;
 pub const PIECE_SCALE: f32 = 2.;
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, Component)]
+#[derive(Clone, Copy, Component, Debug)]
 pub enum PieceEnum {
     BQueen,
     BKing,
@@ -77,16 +77,28 @@ pub fn on_piece_drag(
 pub fn on_piece_dropped(
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
+    mut board: ResMut<Board>,
 ) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query.get_mut(drag_data.target).unwrap();
 
+        // Find where the piece was moved from in board coordinates
+        let original_pos =
+            transform.translation.xy() - Vec2::new(drag_data.distance.x, -drag_data.distance.y);
+        let (ori_i, ori_j) = pixel_to_board_coords(original_pos.x, original_pos.y);
+
+        // Find the new position, snapped to board coords, and move the sprite there
         let (i, j) = pixel_to_board_coords(
             transform.translation.x + PIECE_WIDTH * PIECE_SCALE / 2.,
             transform.translation.y + PIECE_HEIGHT * PIECE_SCALE / 2.,
         );
         let (x, y) = board_to_pixel_coords(i, j);
 
-        transform.translation = Vec3::new(x, y, 1.)
+        transform.translation = Vec3::new(x, y, 1.);
+
+        // Update board to reflect these changes
+        let moved_piece = board.tiles[ori_i][ori_j];
+        board.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        board.tiles[i][j] = moved_piece;
     }
 }

@@ -24,13 +24,8 @@ fn main() {
                 .build(),
             DefaultPickingPlugins,
         ))
-        // .insert_resource(DebugPickingMode::Normal)
         .init_resource::<Board>()
         .add_systems(Startup, setup)
-        // .add_systems(
-        //     Update,
-        //     on_piece_drag.run_if(on_event::<PieceBeingDragged>()),
-        // )
         .run();
 }
 
@@ -80,22 +75,6 @@ fn setup(
     for i in 0..BOARD_HEIGHT {
         for j in 0..BOARD_WIDTH {
             if PieceEnum::Empty as usize != board.tiles[i][j] as usize {
-                // let (x, y) = board_to_pixel_coords(i, j);
-
-                // commands.spawn((
-                //     SpriteSheetBundle {
-                //         texture: texture.clone(),
-                //         atlas: TextureAtlas {
-                //             layout: texture_atlas_layout.clone(),
-                //             index: board.tiles[i][j] as usize,
-                //         },
-                //         transform: Transform::from_scale(Vec3::splat(PIECE_SCALE))
-                //             .with_translation(Vec3::new(x, y, 1.)),
-                //         ..default()
-                //     },
-                //     On::<Pointer<Drag>>::target_component_mut::<Transform>(on_piece_drag),
-                //     On::<Pointer<DragEnd>>::target_component_mut::<Transform>(on_piece_dropped),
-                // ));
                 commands.spawn((Piece::new(
                     (i, j),
                     board.tiles[i][j],

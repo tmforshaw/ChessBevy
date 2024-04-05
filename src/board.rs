@@ -58,12 +58,3 @@ impl Default for Board {
         Board { tiles }
     }
 }
-
-// impl Board {
-//     pub fn set_piece(&mut self, (i, j): (usize, usize), r#type: PieceEnum) {
-//         self.tiles[i][j] = Piece {
-//             r#type,
-//             position: (i, j),
-//         };
-//     }
-// }
