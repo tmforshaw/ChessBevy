@@ -56,7 +56,7 @@ impl Default for Board {
         tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
 
         tiles[3][6] = PieceEnum::WRook;
-        tiles[3][3] = PieceEnum::WPawn;
+        tiles[3][3] = PieceEnum::BPawn;
 
         Board {
             tiles,
@@ -284,8 +284,7 @@ impl Board {
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
-        // Don't go fully up to i_diff since that would stop capturing from being possible
-        for k in 1..i_diff.abs() {
+        for k in 1..i_diff.abs().max(j_diff.abs()) {
             let new_i = ((ori_i as isize + k * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT);
             let new_j = ((ori_j as isize + k * j_diff.signum()) as usize).clamp(0, BOARD_WIDTH);
 
