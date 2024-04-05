@@ -1,10 +1,27 @@
-use crate::piece::PieceEnum;
+use crate::piece::{PieceEnum, PIECE_HEIGHT, PIECE_SCALE, PIECE_WIDTH};
 
 use bevy::prelude::*;
 
 pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
 pub const BOARD_SPACING: (f32, f32) = (4., 4.);
+
+pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
+    (
+        (j as f32 - BOARD_WIDTH as f32 / 2. + 0.5) * (PIECE_WIDTH * PIECE_SCALE + BOARD_SPACING.0),
+        (i as f32 - BOARD_HEIGHT as f32 / 2. + 0.5)
+            * (PIECE_HEIGHT * PIECE_SCALE + BOARD_SPACING.1),
+    )
+}
+
+pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
+    (
+        ((y / (PIECE_HEIGHT * PIECE_SCALE + BOARD_SPACING.1)) - 0.5 + BOARD_HEIGHT as f32 / 2.)
+            as usize,
+        ((x / (PIECE_WIDTH * PIECE_SCALE + BOARD_SPACING.0)) - 0.5 + BOARD_WIDTH as f32 / 2.)
+            as usize,
+    )
+}
 
 #[derive(Resource, Clone, Copy)]
 pub struct Board {
@@ -41,3 +58,12 @@ impl Default for Board {
         Board { tiles }
     }
 }
+
+// impl Board {
+//     pub fn set_piece(&mut self, (i, j): (usize, usize), r#type: PieceEnum) {
+//         self.tiles[i][j] = Piece {
+//             r#type,
+//             position: (i, j),
+//         };
+//     }
+// }
