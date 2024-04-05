@@ -5,6 +5,7 @@ use board::Board;
 
 pub mod board;
 pub mod piece;
+pub mod player;
 
 fn main() {
     App::new()
@@ -13,7 +14,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest())
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Big Time Bevy Time WOoop".into(),
+                        title: "Chez.cum".into(),
                         resolution: (1920., 1080.).into(),
                         resizable: false,
                         ..default()
