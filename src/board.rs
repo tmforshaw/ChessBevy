@@ -1,4 +1,7 @@
-use crate::piece::{PieceEnum, PIECE_HEIGHT, PIECE_SCALE, PIECE_WIDTH};
+use crate::piece::{
+    piece_is_black, piece_is_white, Piece, PieceEnum, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT,
+    PIECE_SCALE, PIECE_WIDTH,
+};
 
 use bevy::prelude::*;
 
@@ -26,6 +29,99 @@ pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
 #[derive(Resource, Clone, Copy)]
 pub struct Board {
     pub tiles: [[PieceEnum; BOARD_WIDTH]; BOARD_HEIGHT],
+    pub texture_file: &'static str,
+    pub pieces_and_positions: [[Option<Entity>; BOARD_WIDTH]; BOARD_HEIGHT],
+}
+
+impl Board {
+    pub fn setup(
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+        mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+        mut board: ResMut<Board>,
+    ) {
+        // Spawn Board Squares
+        for i in 0..board.tiles.len() {
+            for j in 0..board.tiles[i].len() {
+                let (x, y) = board_to_pixel_coords(i, j);
+
+                commands.spawn(SpriteBundle {
+                    sprite: Sprite {
+                        color: if (i + j) % 2 == 0 {
+                            Color::WHITE
+                        } else {
+                            Color::PURPLE
+                        },
+                        custom_size: Some(Vec2::new(PIECE_WIDTH, PIECE_HEIGHT)),
+                        ..default()
+                    },
+                    transform: Transform::from_scale(Vec3::splat(PIECE_SCALE))
+                        .with_translation(Vec3::new(x, y, 0.)),
+                    ..default()
+                });
+            }
+        }
+
+        // Texture atlas for different pieces
+        let texture = asset_server.load(board.texture_file);
+        let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+            Vec2::new(PIECE_WIDTH, PIECE_HEIGHT),
+            PIECE_AMT,
+            COLOUR_AMT,
+            None,
+            None,
+        ));
+
+        // Spawn all the pieces in their respective locations
+        for i in 0..board.tiles.len() {
+            for j in 0..board.tiles[i].len() {
+                if PieceEnum::Empty as usize != board.tiles[i][j] as usize {
+                    let entity = commands.spawn((Piece::new(
+                        (i, j),
+                        board.tiles[i][j],
+                        texture.clone(),
+                        texture_atlas_layout.clone(),
+                    ),));
+
+                    board.pieces_and_positions[i][j] = Some(entity.id());
+                }
+            }
+        }
+    }
+
+    pub fn move_piece(
+        &mut self,
+        original_position: (usize, usize),
+        new_position: (usize, usize),
+        moved_piece_entity: Entity,
+        commands: &mut Commands,
+    ) {
+        let moved_piece = self.tiles[original_position.0][original_position.1];
+
+        // If the square being moved to and the piece are different colours
+        if (piece_is_white(self.tiles[new_position.0][new_position.1])
+            && piece_is_black(moved_piece))
+            || (piece_is_black(self.tiles[new_position.0][new_position.1])
+                && piece_is_white(moved_piece))
+        {
+            if let Some(entity) = self.pieces_and_positions[new_position.0][new_position.1] {
+                commands.entity(entity).despawn();
+            }
+
+            println!(
+                "Moved: {moved_piece:?}, Onto: {:?}",
+                self.tiles[new_position.0][new_position.1]
+            );
+        }
+
+        self.tiles[original_position.0][original_position.1] = PieceEnum::Empty;
+        self.tiles[new_position.0][new_position.1] = moved_piece;
+        self.pieces_and_positions[original_position.0][original_position.1] = None;
+        self.pieces_and_positions[new_position.0][new_position.1] = Some(moved_piece_entity);
+        // else {
+        //    transform.translation = Vec3::new(original_pos.x, original_pos.y, 1.);
+        // }
+    }
 }
 
 impl Default for Board {
@@ -55,7 +151,11 @@ impl Default for Board {
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
 
-        Board { tiles }
+        Board {
+            tiles,
+            texture_file: "ChessPiecesArray.png",
+            pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
+        }
     }
 }
 

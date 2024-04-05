@@ -10,7 +10,6 @@ pub const PIECE_HEIGHT: f32 = 60.;
 
 pub const PIECE_SCALE: f32 = 2.;
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Component, Debug)]
 pub enum PieceEnum {
     BQueen,
@@ -31,9 +30,10 @@ pub enum PieceEnum {
 #[derive(Bundle)]
 pub struct Piece {
     pub key: PieceEnum,
-    pub on_drag_listener: On<Pointer<Drag>>,
-    pub on_drop_listener: On<Pointer<DragEnd>>,
     pub sprite: SpriteSheetBundle,
+    on_drag_listener: On<Pointer<Drag>>,
+    on_drag_end_listener: On<Pointer<DragEnd>>,
+    on_drop_listener: On<Pointer<Drop>>,
 }
 
 impl Piece {
@@ -58,12 +58,13 @@ impl Piece {
                 ..default()
             },
             on_drag_listener: On::<Pointer<Drag>>::run(on_piece_drag),
-            on_drop_listener: On::<Pointer<DragEnd>>::run(on_piece_dropped),
+            on_drag_end_listener: On::<Pointer<DragEnd>>::run(on_piece_drag_end),
+            on_drop_listener: On::<Pointer<Drop>>::run(on_piece_drop),
         }
     }
 }
 
-pub fn on_piece_drag(
+fn on_piece_drag(
     mut drag_er: EventReader<Pointer<Drag>>,
     mut transform_query: Query<&mut Transform>,
 ) {
@@ -74,7 +75,8 @@ pub fn on_piece_drag(
     }
 }
 
-pub fn on_piece_dropped(
+fn on_piece_drag_end(
+    mut commands: Commands,
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
@@ -97,10 +99,39 @@ pub fn on_piece_dropped(
         transform.translation = Vec3::new(x, y, 1.);
 
         // Update board to reflect these changes
-        let moved_piece = board.tiles[ori_i][ori_j];
-        board.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        board.tiles[i][j] = moved_piece;
+        // let moved_piece = board.tiles[ori_i][ori_j];
 
-        // println!("{}", board.reborrow().into_inner());
+        // if board.tiles[i][j] as usize == PieceEnum::Empty as usize {
+        //     board.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        //     board.tiles[i][j] = moved_piece;
+        // } else if (piece_is_white(board.tiles[i][j]) && piece_is_black(moved_piece))
+        //     || (piece_is_black(board.tiles[i][j]) && piece_is_white(moved_piece))
+        // {
+        //     // If the square being moved to and the piece are different colours
+        //     commands
+        //         .entity(board.pieces_and_positions[i][j].unwrap())
+        //         .despawn();
+
+        //     println!("Moved: {moved_piece:?}, Onto: {:?}", board.tiles[i][j]);
+
+        //     board.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        //     board.tiles[i][j] = moved_piece;
+        // } else {
+        //     transform.translation = Vec3::new(original_pos.x, original_pos.y, 1.);
+        // }
+
+        board.move_piece((ori_i, ori_j), (i, j), drag_data.target(), &mut commands)
     }
+}
+
+fn on_piece_drop(drop_er: EventReader<Pointer<Drop>>) {
+    println!("SOMETHING WAS DROPPED: {drop_er:?}");
+}
+
+pub fn piece_is_white(piece: PieceEnum) -> bool {
+    (PIECE_AMT..PIECE_AMT * COLOUR_AMT).contains(&(piece as usize))
+}
+
+pub fn piece_is_black(piece: PieceEnum) -> bool {
+    (0..PIECE_AMT).contains(&(piece as usize))
 }
