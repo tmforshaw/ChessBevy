@@ -19,10 +19,12 @@ pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
 
 pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
     (
-        ((y / (PIECE_HEIGHT * PIECE_SCALE + BOARD_SPACING.1)) - 0.5 + BOARD_HEIGHT as f32 / 2.)
-            as usize,
-        ((x / (PIECE_WIDTH * PIECE_SCALE + BOARD_SPACING.0)) - 0.5 + BOARD_WIDTH as f32 / 2.)
-            as usize,
+        (((y / (PIECE_HEIGHT * PIECE_SCALE + BOARD_SPACING.1)) - 0.5 + BOARD_HEIGHT as f32 / 2.)
+            as usize)
+            .clamp(0, BOARD_HEIGHT - 1),
+        (((x / (PIECE_WIDTH * PIECE_SCALE + BOARD_SPACING.0)) - 0.5 + BOARD_WIDTH as f32 / 2.)
+            as usize)
+            .clamp(0, BOARD_WIDTH - 1),
     )
 }
 
@@ -91,36 +93,38 @@ impl Board {
 
     pub fn move_piece(
         &mut self,
-        original_position: (usize, usize),
-        new_position: (usize, usize),
+        (ori_i, ori_j): (usize, usize),
+        (i, j): (usize, usize),
         moved_piece_entity: Entity,
+        transform: &mut Transform,
         commands: &mut Commands,
     ) {
-        let moved_piece = self.tiles[original_position.0][original_position.1];
+        let moved_piece = self.tiles[ori_i][ori_j];
+        let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
 
-        // If the square being moved to and the piece are different colours
-        if (piece_is_white(self.tiles[new_position.0][new_position.1])
-            && piece_is_black(moved_piece))
-            || (piece_is_black(self.tiles[new_position.0][new_position.1])
-                && piece_is_white(moved_piece))
+        // Exit function if both pieces are the same colour
+        if (piece_is_white(self.tiles[i][j]) && piece_is_white(self.tiles[ori_i][ori_j]))
+            || (piece_is_black(self.tiles[i][j]) && piece_is_black(self.tiles[ori_i][ori_j]))
         {
-            if let Some(entity) = self.pieces_and_positions[new_position.0][new_position.1] {
-                commands.entity(entity).despawn();
-            }
-
-            println!(
-                "Moved: {moved_piece:?}, Onto: {:?}",
-                self.tiles[new_position.0][new_position.1]
-            );
+            // Move back to original position
+            transform.translation = Vec3::new(ori_x, ori_y, 1.);
+            return;
         }
 
-        self.tiles[original_position.0][original_position.1] = PieceEnum::Empty;
-        self.tiles[new_position.0][new_position.1] = moved_piece;
-        self.pieces_and_positions[original_position.0][original_position.1] = None;
-        self.pieces_and_positions[new_position.0][new_position.1] = Some(moved_piece_entity);
-        // else {
-        //    transform.translation = Vec3::new(original_pos.x, original_pos.y, 1.);
-        // }
+        // Pieces are different colours and new tile is not empty
+        if self.tiles[i][j] as usize != PieceEnum::Empty as usize {
+            if let Some(entity) = self.pieces_and_positions[i][j] {
+                commands.entity(entity).despawn();
+            }
+        }
+
+        let (x, y) = board_to_pixel_coords(i, j);
+        transform.translation = Vec3::new(x, y, 1.);
+
+        self.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        self.tiles[i][j] = moved_piece;
+        self.pieces_and_positions[ori_i][ori_j] = None;
+        self.pieces_and_positions[i][j] = Some(moved_piece_entity);
     }
 }
 

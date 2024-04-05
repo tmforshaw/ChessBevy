@@ -33,7 +33,7 @@ pub struct Piece {
     pub sprite: SpriteSheetBundle,
     on_drag_listener: On<Pointer<Drag>>,
     on_drag_end_listener: On<Pointer<DragEnd>>,
-    on_drop_listener: On<Pointer<Drop>>,
+    // on_drop_listener: On<Pointer<Drop>>,
 }
 
 impl Piece {
@@ -59,7 +59,7 @@ impl Piece {
             },
             on_drag_listener: On::<Pointer<Drag>>::run(on_piece_drag),
             on_drag_end_listener: On::<Pointer<DragEnd>>::run(on_piece_drag_end),
-            on_drop_listener: On::<Pointer<Drop>>::run(on_piece_drop),
+            // on_drop_listener: On::<Pointer<Drop>>::run(on_piece_drop),
         }
     }
 }
@@ -85,8 +85,9 @@ fn on_piece_drag_end(
         let mut transform = transform_query.get_mut(drag_data.target).unwrap();
 
         // Find where the piece was moved from in board coordinates
-        let original_pos =
-            transform.translation.xy() - Vec2::new(drag_data.distance.x, -drag_data.distance.y);
+        let original_pos = transform.translation.xy()
+            - Vec2::new(drag_data.distance.x, -drag_data.distance.y)
+            + Vec2::new(PIECE_WIDTH, PIECE_HEIGHT) * PIECE_SCALE / 2.;
         let (ori_i, ori_j) = pixel_to_board_coords(original_pos.x, original_pos.y);
 
         // Find the new position, snapped to board coords, and move the sprite there
@@ -94,38 +95,15 @@ fn on_piece_drag_end(
             transform.translation.x + PIECE_WIDTH * PIECE_SCALE / 2.,
             transform.translation.y + PIECE_HEIGHT * PIECE_SCALE / 2.,
         );
-        let (x, y) = board_to_pixel_coords(i, j);
 
-        transform.translation = Vec3::new(x, y, 1.);
-
-        // Update board to reflect these changes
-        // let moved_piece = board.tiles[ori_i][ori_j];
-
-        // if board.tiles[i][j] as usize == PieceEnum::Empty as usize {
-        //     board.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        //     board.tiles[i][j] = moved_piece;
-        // } else if (piece_is_white(board.tiles[i][j]) && piece_is_black(moved_piece))
-        //     || (piece_is_black(board.tiles[i][j]) && piece_is_white(moved_piece))
-        // {
-        //     // If the square being moved to and the piece are different colours
-        //     commands
-        //         .entity(board.pieces_and_positions[i][j].unwrap())
-        //         .despawn();
-
-        //     println!("Moved: {moved_piece:?}, Onto: {:?}", board.tiles[i][j]);
-
-        //     board.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        //     board.tiles[i][j] = moved_piece;
-        // } else {
-        //     transform.translation = Vec3::new(original_pos.x, original_pos.y, 1.);
-        // }
-
-        board.move_piece((ori_i, ori_j), (i, j), drag_data.target(), &mut commands)
+        board.move_piece(
+            (ori_i, ori_j),
+            (i, j),
+            drag_data.target(),
+            &mut transform,
+            &mut commands,
+        )
     }
-}
-
-fn on_piece_drop(drop_er: EventReader<Pointer<Drop>>) {
-    println!("SOMETHING WAS DROPPED: {drop_er:?}");
 }
 
 pub fn piece_is_white(piece: PieceEnum) -> bool {
