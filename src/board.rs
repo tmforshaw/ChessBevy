@@ -28,6 +28,77 @@ pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
     )
 }
 
+impl Default for Board {
+    fn default() -> Self {
+        let mut tiles = [[PieceEnum::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
+
+        tiles[0][0] = PieceEnum::WRook;
+        tiles[0][1] = PieceEnum::WKnight;
+        tiles[0][2] = PieceEnum::WBishop;
+        tiles[0][3] = PieceEnum::WQueen;
+        tiles[0][4] = PieceEnum::WKing;
+        tiles[0][5] = PieceEnum::WBishop;
+        tiles[0][6] = PieceEnum::WKnight;
+        tiles[0][7] = PieceEnum::WRook;
+
+        for i in 0..BOARD_WIDTH {
+            tiles[1][i] = PieceEnum::WPawn;
+            tiles[BOARD_HEIGHT - 2][i] = PieceEnum::BPawn;
+        }
+
+        tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
+        tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
+        tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
+        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
+        tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
+        tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
+        tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
+        tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
+
+        Board {
+            tiles,
+            texture_file: "ChessPiecesArray.png",
+            pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
+        }
+    }
+}
+
+// This just helps with debugging, seeing the internal state of the board
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut message = String::new();
+        for i in (0..self.tiles.len()).rev() {
+            for j in 0..self.tiles[i].len() {
+                message.push_str(
+                    format!(
+                        "{} ",
+                        match self.tiles[i][j] {
+                            PieceEnum::Empty => "*",
+                            PieceEnum::BQueen => "q",
+                            PieceEnum::BKing => "k",
+                            PieceEnum::BKnight => "n",
+                            PieceEnum::BBishop => "b",
+                            PieceEnum::BRook => "r",
+                            PieceEnum::BPawn => "p",
+                            PieceEnum::WQueen => "Q",
+                            PieceEnum::WKing => "K",
+                            PieceEnum::WKnight => "N",
+                            PieceEnum::WBishop => "B",
+                            PieceEnum::WRook => "R",
+                            PieceEnum::WPawn => "P",
+                        }
+                    )
+                    .as_str(),
+                );
+            }
+
+            message.push('\n');
+        }
+
+        write!(f, "{message}")
+    }
+}
+
 #[derive(Resource, Clone, Copy)]
 pub struct Board {
     pub tiles: [[PieceEnum; BOARD_WIDTH]; BOARD_HEIGHT],
@@ -105,6 +176,7 @@ impl Board {
         // Exit function if both pieces are the same colour
         if (piece_is_white(self.tiles[i][j]) && piece_is_white(self.tiles[ori_i][ori_j]))
             || (piece_is_black(self.tiles[i][j]) && piece_is_black(self.tiles[ori_i][ori_j]))
+            || !self.can_move_piece_to((ori_i, ori_j), (i, j))
         {
             // Move back to original position
             transform.translation = Vec3::new(ori_x, ori_y, 1.);
@@ -126,75 +198,91 @@ impl Board {
         self.pieces_and_positions[ori_i][ori_j] = None;
         self.pieces_and_positions[i][j] = Some(moved_piece_entity);
     }
-}
 
-impl Default for Board {
-    fn default() -> Self {
-        let mut tiles = [[PieceEnum::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
+    // Movement
+    fn can_move_piece_to(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+        match self.tiles[ori_i][ori_j] {
+            PieceEnum::WPawn | PieceEnum::BPawn => {
+                let i_diff = i as isize - ori_i as isize;
+                let j_diff = j as isize - ori_j as isize;
 
-        tiles[0][0] = PieceEnum::WRook;
-        tiles[0][1] = PieceEnum::WKnight;
-        tiles[0][2] = PieceEnum::WBishop;
-        tiles[0][3] = PieceEnum::WQueen;
-        tiles[0][4] = PieceEnum::WKing;
-        tiles[0][5] = PieceEnum::WBishop;
-        tiles[0][6] = PieceEnum::WKnight;
-        tiles[0][7] = PieceEnum::WRook;
+                let vertical_bool = match self.tiles[ori_i][ori_j] {
+                    PieceEnum::WPawn => i_diff == 1 || (ori_i == 1 && i_diff.abs() == 2),
+                    PieceEnum::BPawn => {
+                        i_diff == -1 || (ori_i == BOARD_HEIGHT - 2 && i_diff.abs() == 2)
+                    }
+                    _ => unreachable!(),
+                };
 
-        for i in 0..BOARD_WIDTH {
-            tiles[1][i] = PieceEnum::WPawn;
-            tiles[BOARD_HEIGHT - 2][i] = PieceEnum::BPawn;
-        }
+                vertical_bool
+                    && (j_diff == 0 && self.tiles[i][j] as usize == PieceEnum::Empty as usize)
+                    || (j_diff.abs() == 1 && self.tiles[i][j] as usize != PieceEnum::Empty as usize)
+            }
+            PieceEnum::WRook | PieceEnum::BRook => self.can_move_straight((ori_i, ori_j), (i, j)),
+            PieceEnum::WBishop | PieceEnum::BBishop => {
+                self.can_move_diagonal((ori_i, ori_j), (i, j))
+            }
+            PieceEnum::WQueen | PieceEnum::BQueen => {
+                let i_diff = i as isize - ori_i as isize;
+                let j_diff = j as isize - ori_j as isize;
 
-        tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
-        tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
-        tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
-        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
-        tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
-        tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
-        tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
-        tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
+                if i_diff == 0 || j_diff == 0 {
+                    self.can_move_straight((ori_i, ori_j), (i, j))
+                } else {
+                    self.can_move_diagonal((ori_i, ori_j), (i, j))
+                }
+            }
+            PieceEnum::WKnight | PieceEnum::BKnight => {
+                let i_diff = i as isize - ori_i as isize;
+                let j_diff = j as isize - ori_j as isize;
 
-        Board {
-            tiles,
-            texture_file: "ChessPiecesArray.png",
-            pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
+                (i_diff.abs() == 1 && j_diff.abs() == 2) || (j_diff.abs() == 1 && i_diff.abs() == 2)
+            }
+            PieceEnum::WKing | PieceEnum::BKing => {
+                let i_diff = i as isize - ori_i as isize;
+                let j_diff = j as isize - ori_j as isize;
+
+                i_diff.abs() <= 1
+                    && j_diff.abs() <= 1
+                    && !self.is_path_blocked((ori_i, ori_j), (i, j))
+            }
+            PieceEnum::Empty => false,
         }
     }
-}
 
-// This just helps with debugging, seeing the internal state of the board
-impl std::fmt::Display for Board {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut message = String::new();
-        for i in (0..self.tiles.len()).rev() {
-            for j in 0..self.tiles[i].len() {
-                message.push_str(
-                    format!(
-                        "{} ",
-                        match self.tiles[i][j] {
-                            PieceEnum::Empty => "*",
-                            PieceEnum::BQueen => "q",
-                            PieceEnum::BKing => "k",
-                            PieceEnum::BKnight => "n",
-                            PieceEnum::BBishop => "b",
-                            PieceEnum::BRook => "r",
-                            PieceEnum::BPawn => "p",
-                            PieceEnum::WQueen => "Q",
-                            PieceEnum::WKing => "K",
-                            PieceEnum::WKnight => "N",
-                            PieceEnum::WBishop => "B",
-                            PieceEnum::WRook => "R",
-                            PieceEnum::WPawn => "P",
-                        }
-                    )
-                    .as_str(),
-                );
+    fn can_move_straight(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+        let i_diff = i as isize - ori_i as isize;
+        let j_diff = j as isize - ori_j as isize;
+
+        let straight_movement =
+            (i_diff.abs() > 0 && j_diff == 0) || (j_diff.abs() > 0 && i_diff == 0);
+
+        straight_movement && !self.is_path_blocked((ori_i, ori_j), (i, j))
+    }
+
+    fn can_move_diagonal(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+        let i_diff = i as isize - ori_i as isize;
+        let j_diff = j as isize - ori_j as isize;
+
+        let diagonal_movement = i_diff.abs() == j_diff.abs();
+
+        diagonal_movement && !self.is_path_blocked((ori_i, ori_j), (i, j))
+    }
+
+    fn is_path_blocked(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+        let i_diff = i as isize - ori_i as isize;
+        let j_diff = j as isize - ori_j as isize;
+
+        for k in 1..i_diff.abs() {
+            if self.tiles[((ori_i as isize + k * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT)]
+                [((ori_j as isize + k * j_diff.signum()) as usize).clamp(0, BOARD_WIDTH)]
+                as usize
+                != PieceEnum::Empty as usize
+            {
+                return true;
             }
-
-            message.push('\n');
         }
 
-        write!(f, "{message}")
+        false
     }
 }

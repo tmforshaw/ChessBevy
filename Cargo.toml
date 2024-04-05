@@ -1,5 +1,5 @@
 [package]
-name = "bevy_2d_game"
+name = "chess_bevy"
 version = "0.1.0"
 edition = "2021"
 
