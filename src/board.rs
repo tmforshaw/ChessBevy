@@ -226,6 +226,7 @@ impl Board {
         match self.tiles[ori_i][ori_j] {
             PieceEnum::WPawn | PieceEnum::BPawn => {
                 // Allow double movement on pawn's first move
+
                 let first_move = match self.tiles[ori_i][ori_j] {
                     PieceEnum::WPawn => ori_i == 1 && i_diff == 2,
                     PieceEnum::BPawn => ori_i == BOARD_HEIGHT - 2 && i_diff == -2,
@@ -237,19 +238,23 @@ impl Board {
                     && j_diff == 0;
 
                 // Allow the pawn to move up or down depending on player colour
-                let normal_movement = match self.tiles[ori_i][ori_j] {
+                // This affects captures as well
+                let vertical_movement = match self.tiles[ori_i][ori_j] {
                     PieceEnum::WPawn => i_diff == 1,
                     PieceEnum::BPawn => i_diff == -1,
                     _ => unreachable!(),
-                } && j_diff == 0
-                    && self.tiles[i][j] as usize == PieceEnum::Empty as usize;
+                };
+
+                // Restrict up or down movement to only directly up and down
+                let normal_movement =
+                    j_diff == 0 && self.tiles[i][j] as usize == PieceEnum::Empty as usize;
 
                 // Allow diagonal capturing of pieces with pawns
                 let capture_bool = j_diff.abs() == 1
                     && self.tiles[i][j] as usize != PieceEnum::Empty as usize
                     && i_diff.abs() == 1;
 
-                first_move || normal_movement || capture_bool
+                first_move || vertical_movement && (normal_movement || capture_bool)
             }
             PieceEnum::WRook | PieceEnum::BRook => self.can_move_straight((ori_i, ori_j), (i, j)),
             PieceEnum::WBishop | PieceEnum::BBishop => {
