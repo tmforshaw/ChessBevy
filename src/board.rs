@@ -9,6 +9,21 @@ pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
 pub const BOARD_SPACING: (f32, f32) = (4., 4.);
 
+#[derive(Component, Copy, Clone)]
+pub enum Player {
+    White,
+    Black,
+}
+
+impl From<usize> for Player {
+    fn from(num: usize) -> Self {
+        match num {
+            1 => Self::Black,
+            _ => Self::White,
+        }
+    }
+}
+
 pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
     (
         (j as f32 - BOARD_WIDTH as f32 / 2. + 0.5) * (PIECE_WIDTH * PIECE_SCALE + BOARD_SPACING.0),
@@ -59,6 +74,7 @@ impl Default for Board {
             tiles,
             texture_file: "ChessPiecesArray.png",
             pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
+            current_player: Player::White,
         }
     }
 }
@@ -104,6 +120,7 @@ pub struct Board {
     pub tiles: [[PieceEnum; BOARD_WIDTH]; BOARD_HEIGHT],
     pub texture_file: &'static str,
     pub pieces_and_positions: [[Option<Entity>; BOARD_WIDTH]; BOARD_HEIGHT],
+    pub current_player: Player,
 }
 
 impl Board {
@@ -170,13 +187,16 @@ impl Board {
         transform: &mut Transform,
         commands: &mut Commands,
     ) {
-        let moved_piece = self.tiles[ori_i][ori_j];
         let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
 
         // Exit function if both pieces are the same colour
         if (piece_is_white(self.tiles[i][j]) && piece_is_white(self.tiles[ori_i][ori_j]))
             || (piece_is_black(self.tiles[i][j]) && piece_is_black(self.tiles[ori_i][ori_j]))
             || !self.can_move_piece_to((ori_i, ori_j), (i, j))
+            || ((piece_is_white(self.tiles[ori_i][ori_j])
+                && self.current_player as usize == Player::Black as usize)
+                || (piece_is_black(self.tiles[ori_i][ori_j])
+                    && self.current_player as usize == Player::White as usize))
         {
             // Move back to original position
             transform.translation = Vec3::new(ori_x, ori_y, 1.);
@@ -193,10 +213,13 @@ impl Board {
         let (x, y) = board_to_pixel_coords(i, j);
         transform.translation = Vec3::new(x, y, 1.);
 
+        let moved_piece = self.tiles[ori_i][ori_j];
         self.tiles[ori_i][ori_j] = PieceEnum::Empty;
         self.tiles[i][j] = moved_piece;
         self.pieces_and_positions[ori_i][ori_j] = None;
         self.pieces_and_positions[i][j] = Some(moved_piece_entity);
+
+        self.current_player = (self.current_player as usize + 1).into();
     }
 
     // Movement
