@@ -55,9 +55,6 @@ impl Default for Board {
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
 
-        tiles[3][6] = PieceEnum::WRook;
-        tiles[3][3] = PieceEnum::BPawn;
-
         Board {
             tiles,
             texture_file: "ChessPiecesArray.png",
