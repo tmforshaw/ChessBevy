@@ -1,9 +1,10 @@
-use std::ops::Deref;
-
-use bevy::{prelude::*, sprite::Mesh2dHandle};
+use bevy::{
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
 use bevy_mod_picking::prelude::*;
 
-use crate::board::{board_to_pixel_coords, draw_possible_moves, pixel_to_board_coords, Board};
+use crate::board::{board_to_pixel_coords, pixel_to_board_coords, Board};
 
 pub const PIECE_AMT: usize = 6;
 pub const COLOUR_AMT: usize = 2;
@@ -11,6 +12,14 @@ pub const PIECE_WIDTH: f32 = 60.;
 pub const PIECE_HEIGHT: f32 = 60.;
 
 pub const PIECE_SCALE: f32 = 2.;
+
+pub fn piece_is_white(piece: PieceEnum) -> bool {
+    (PIECE_AMT..PIECE_AMT * COLOUR_AMT).contains(&(piece as usize))
+}
+
+pub fn piece_is_black(piece: PieceEnum) -> bool {
+    (0..PIECE_AMT).contains(&(piece as usize))
+}
 
 #[derive(Clone, Copy, Component, Debug)]
 pub enum PieceEnum {
@@ -83,7 +92,6 @@ fn on_piece_drag_end(
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
     meshes: Query<Entity, With<Mesh2dHandle>>,
-    // mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -108,17 +116,45 @@ fn on_piece_drag_end(
             &mut commands,
         );
 
-        // Clean up the possible position markers
+        // Clean up the possible move markers
         for mesh in meshes.iter() {
             commands.entity(mesh).despawn();
         }
     }
 }
 
-pub fn piece_is_white(piece: PieceEnum) -> bool {
-    (PIECE_AMT..PIECE_AMT * COLOUR_AMT).contains(&(piece as usize))
-}
+pub fn draw_possible_moves(
+    mut drag_er: EventReader<Pointer<DragStart>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut transform_query: Query<&mut Transform>,
+    board: Res<Board>,
+) {
+    for drag_data in drag_er.read() {
+        let transform = transform_query.get_mut(drag_data.target).unwrap();
+        let (piece_i, piece_j) =
+            pixel_to_board_coords(transform.translation.x, transform.translation.y);
 
-pub fn piece_is_black(piece: PieceEnum) -> bool {
-    (0..PIECE_AMT).contains(&(piece as usize))
+        let possible_moves = board.get_possible_moves((piece_i, piece_j));
+
+        let shape = Mesh2dHandle(meshes.add(Circle {
+            radius: PIECE_HEIGHT * PIECE_SCALE * 0.8 / 2.,
+        }));
+        let colour = Color::hsla(285., 0.60, 0.5, 0.85);
+
+        for pos in possible_moves.iter() {
+            let (x, y) = board_to_pixel_coords(pos.0, pos.1);
+
+            commands.spawn(MaterialMesh2dBundle {
+                mesh: shape.clone(),
+                material: materials.add(colour),
+                transform: Transform::from_xyz(
+                    // Distribute shapes from -X_EXTENT to +X_EXTENT.
+                    x, y, 2.0,
+                ),
+                ..default()
+            });
+        }
+    }
 }

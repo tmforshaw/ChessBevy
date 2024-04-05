@@ -23,7 +23,7 @@ fn main() {
                 .build(),
             DefaultPickingPlugins,
         ))
-        .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
+        // .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
         .init_resource::<Board>()
         .add_systems(Startup, (setup, Board::setup))
         .run();

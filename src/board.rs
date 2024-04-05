@@ -3,11 +3,7 @@ use crate::piece::{
     PIECE_SCALE, PIECE_WIDTH,
 };
 
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
-use bevy_mod_picking::prelude::*;
+use bevy::prelude::*;
 
 pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
@@ -58,6 +54,9 @@ impl Default for Board {
         tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
+
+        tiles[3][6] = PieceEnum::WRook;
+        tiles[3][3] = PieceEnum::WPawn;
 
         Board {
             tiles,
@@ -205,22 +204,36 @@ impl Board {
 
     // Movement
     fn can_move_piece_to(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+        if (piece_is_white(self.tiles[ori_i][ori_j]) && piece_is_white(self.tiles[i][j]))
+            || (piece_is_black(self.tiles[ori_i][ori_j]) && piece_is_black(self.tiles[i][j]))
+        {
+            return false;
+        }
+
         match self.tiles[ori_i][ori_j] {
             PieceEnum::WPawn | PieceEnum::BPawn => {
                 let i_diff = i as isize - ori_i as isize;
                 let j_diff = j as isize - ori_j as isize;
 
-                let vertical_bool = match self.tiles[ori_i][ori_j] {
-                    PieceEnum::WPawn => i_diff == 1 || (ori_i == 1 && i_diff.abs() == 2),
-                    PieceEnum::BPawn => {
-                        i_diff == -1 || (ori_i == BOARD_HEIGHT - 2 && i_diff.abs() == 2)
-                    }
+                let first_move = match self.tiles[ori_i][ori_j] {
+                    PieceEnum::WPawn => ori_i == 1 && i_diff == 2,
+                    PieceEnum::BPawn => ori_i == BOARD_HEIGHT - 2 && i_diff == -2,
+                    _ => unreachable!(),
+                } && self.tiles
+                    [((ori_i as isize + i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT)][ori_j]
+                    as usize
+                    == PieceEnum::Empty as usize;
+
+                let capture_bool = match self.tiles[ori_i][ori_j] {
+                    PieceEnum::WPawn => i_diff == 1,
+                    PieceEnum::BPawn => i_diff == -1,
                     _ => unreachable!(),
                 };
 
-                vertical_bool
-                    && (j_diff == 0 && self.tiles[i][j] as usize == PieceEnum::Empty as usize)
-                    || (j_diff.abs() == 1 && self.tiles[i][j] as usize != PieceEnum::Empty as usize)
+                (first_move || capture_bool)
+                    && ((j_diff == 0 && self.tiles[i][j] as usize == PieceEnum::Empty as usize)
+                        || (j_diff.abs() == 1
+                            && self.tiles[i][j] as usize != PieceEnum::Empty as usize))
             }
             PieceEnum::WRook | PieceEnum::BRook => self.can_move_straight((ori_i, ori_j), (i, j)),
             PieceEnum::WBishop | PieceEnum::BBishop => {
@@ -271,12 +284,12 @@ impl Board {
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
+        // Don't go fully up to i_diff since that would stop capturing from being possible
         for k in 1..i_diff.abs() {
-            if self.tiles[((ori_i as isize + k * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT)]
-                [((ori_j as isize + k * j_diff.signum()) as usize).clamp(0, BOARD_WIDTH)]
-                as usize
-                != PieceEnum::Empty as usize
-            {
+            let new_i = ((ori_i as isize + k * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT);
+            let new_j = ((ori_j as isize + k * j_diff.signum()) as usize).clamp(0, BOARD_WIDTH);
+
+            if self.tiles[new_i][new_j] as usize != PieceEnum::Empty as usize {
                 return true;
             }
         }
@@ -296,73 +309,5 @@ impl Board {
         }
 
         possible_tiles
-    }
-}
-
-pub fn draw_possible_moves(
-    mut drag_er: EventReader<Pointer<DragStart>>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut transform_query: Query<&mut Transform>,
-    board: Res<Board>,
-) {
-    for drag_data in drag_er.read() {
-        let transform = transform_query.get_mut(drag_data.target).unwrap();
-        let (piece_i, piece_j) =
-            pixel_to_board_coords(transform.translation.x, transform.translation.y);
-
-        let possible_moves = board.get_possible_moves((piece_i, piece_j));
-
-        let shape = Mesh2dHandle(meshes.add(Circle {
-            radius: PIECE_HEIGHT * PIECE_SCALE * 0.8 / 2.,
-        }));
-
-        for (i, pos) in possible_moves.iter().enumerate() {
-            let colour = Color::hsl(360. * i as f32, 0.95, 0.7);
-
-            let (x, y) = board_to_pixel_coords(pos.0, pos.1);
-
-            commands.spawn(MaterialMesh2dBundle {
-                mesh: shape.clone(),
-                material: materials.add(colour),
-                transform: Transform::from_xyz(
-                    // Distribute shapes from -X_EXTENT to +X_EXTENT.
-                    x, y, 1.0,
-                ),
-                ..default()
-            });
-        }
-
-        // let shapes = [
-        //     Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
-        //     Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
-        //     Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
-        //     Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
-        //     Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
-        //     Mesh2dHandle(meshes.add(Triangle2d::new(
-        //         Vec2::Y * 50.0,
-        //         Vec2::new(-50.0, -50.0),
-        //         Vec2::new(50.0, -50.0),
-        //     ))),
-        // ];
-        // let num_shapes = shapes.len();
-
-        // for (i, shape) in shapes.into_iter().enumerate() {
-        //     // Distribute colors evenly across the rainbow.
-        //     let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
-
-        //     commands.spawn(MaterialMesh2dBundle {
-        //         mesh: shape,
-        //         material: materials.add(color),
-        //         transform: Transform::from_xyz(
-        //             // Distribute shapes from -X_EXTENT to +X_EXTENT.
-        //             BOARD_WIDTH as f32 / -2. + i as f32 / (num_shapes - 1) as f32 * BOARD_WIDTH as f32,
-        //             0.0,
-        //             0.0,
-        //         ),
-        //         ..default()
-        //     });
-        // }
     }
 }
