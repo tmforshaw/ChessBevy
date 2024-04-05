@@ -3,7 +3,11 @@ use crate::piece::{
     PIECE_SCALE, PIECE_WIDTH,
 };
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
+use bevy_mod_picking::prelude::*;
 
 pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
@@ -223,14 +227,8 @@ impl Board {
                 self.can_move_diagonal((ori_i, ori_j), (i, j))
             }
             PieceEnum::WQueen | PieceEnum::BQueen => {
-                let i_diff = i as isize - ori_i as isize;
-                let j_diff = j as isize - ori_j as isize;
-
-                if i_diff == 0 || j_diff == 0 {
-                    self.can_move_straight((ori_i, ori_j), (i, j))
-                } else {
-                    self.can_move_diagonal((ori_i, ori_j), (i, j))
-                }
+                self.can_move_straight((ori_i, ori_j), (i, j))
+                    || self.can_move_diagonal((ori_i, ori_j), (i, j))
             }
             PieceEnum::WKnight | PieceEnum::BKnight => {
                 let i_diff = i as isize - ori_i as isize;
@@ -285,4 +283,44 @@ impl Board {
 
         false
     }
+
+    pub fn get_possible_moves(&self, (i, j): (usize, usize)) {}
+}
+
+pub fn draw_possible_moves(
+    mut drag_er: EventReader<Pointer<DragStart>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    // let shapes = [
+    //     Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
+    //     Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
+    //     Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
+    //     Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
+    //     Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
+    //     Mesh2dHandle(meshes.add(Triangle2d::new(
+    //         Vec2::Y * 50.0,
+    //         Vec2::new(-50.0, -50.0),
+    //         Vec2::new(50.0, -50.0),
+    //     ))),
+    // ];
+    // let num_shapes = shapes.len();
+
+    // for (i, shape) in shapes.into_iter().enumerate() {
+    //     // Distribute colors evenly across the rainbow.
+    //     let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
+
+    //     commands.spawn(MaterialMesh2dBundle {
+    //         mesh: shape,
+    //         material: materials.add(color),
+    //         transform: Transform::from_xyz(
+    //             // Distribute shapes from -X_EXTENT to +X_EXTENT.
+    //             BOARD_WIDTH as f32 / -2. + i as f32 / (num_shapes - 1) as f32 * BOARD_WIDTH as f32,
+    //             0.0,
+    //             0.0,
+    //         ),
+    //         ..default()
+    //     });
+    // }
 }

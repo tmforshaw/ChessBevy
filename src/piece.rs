@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
-use crate::board::{board_to_pixel_coords, pixel_to_board_coords, Board};
+use crate::board::{board_to_pixel_coords, draw_possible_moves, pixel_to_board_coords, Board};
 
 pub const PIECE_AMT: usize = 6;
 pub const COLOUR_AMT: usize = 2;
@@ -31,9 +31,9 @@ pub enum PieceEnum {
 pub struct Piece {
     pub key: PieceEnum,
     pub sprite: SpriteSheetBundle,
+    on_drag_start_listener: On<Pointer<DragStart>>,
     on_drag_listener: On<Pointer<Drag>>,
     on_drag_end_listener: On<Pointer<DragEnd>>,
-    // on_drop_listener: On<Pointer<Drop>>,
 }
 
 impl Piece {
@@ -57,9 +57,9 @@ impl Piece {
                     .with_translation(Vec3::new(x, y, 1.)),
                 ..default()
             },
+            on_drag_start_listener: On::<Pointer<DragStart>>::run(draw_possible_moves),
             on_drag_listener: On::<Pointer<Drag>>::run(on_piece_drag),
             on_drag_end_listener: On::<Pointer<DragEnd>>::run(on_piece_drag_end),
-            // on_drop_listener: On::<Pointer<Drop>>::run(on_piece_drop),
         }
     }
 }
