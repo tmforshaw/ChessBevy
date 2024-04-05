@@ -3,7 +3,7 @@ use crate::{
         piece_is_black, piece_is_white, Piece, PieceEnum, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT,
         PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
     },
-    player::PlayerEnum,
+    player::{Player, PlayerEnum},
 };
 
 use bevy::prelude::*;
@@ -209,6 +209,13 @@ impl Board {
 
         // Change to the next player in the game
         self.current_player = (self.current_player as usize + 1).into();
+
+        let in_check = self.check_for_checks(self.current_player);
+        println!(
+            "{:?} {} in check",
+            self.current_player,
+            if in_check { "is" } else { "is not" }
+        );
     }
 
     // Movement
@@ -226,7 +233,6 @@ impl Board {
         match self.tiles[ori_i][ori_j] {
             PieceEnum::WPawn | PieceEnum::BPawn => {
                 // Allow double movement on pawn's first move
-
                 let first_move = match self.tiles[ori_i][ori_j] {
                     PieceEnum::WPawn => ori_i == 1 && i_diff == 2,
                     PieceEnum::BPawn => ori_i == BOARD_HEIGHT - 2 && i_diff == -2,
@@ -333,5 +339,54 @@ impl Board {
         }
 
         possible_tiles
+    }
+
+    pub fn get_player_piece_positions(&self, player: PlayerEnum) -> Vec<(usize, usize)> {
+        self.tiles
+            .iter()
+            .enumerate()
+            .filter_map(|(i, row)| {
+                let j = row.iter().position(|&piece| match player {
+                    PlayerEnum::White => piece_is_white(piece),
+                    PlayerEnum::Black => piece_is_black(piece),
+                })?;
+                Some((i, j))
+            })
+            .collect()
+    }
+
+    pub fn get_all_possible_moves(&self, player: PlayerEnum) -> Vec<(usize, usize)> {
+        let player_pieces = self.get_player_piece_positions(player);
+
+        // TODO very very inefficeient, makes me sad
+        let mut possible_tiles = Vec::new();
+        for piece_pos in player_pieces {
+            // Check every tile on the board to see if the piece at this position can move to them
+            for k in 0..BOARD_HEIGHT {
+                for l in 0..BOARD_WIDTH {
+                    if self.can_move_piece_to(piece_pos, (k, l)) {
+                        possible_tiles.push((k, l))
+                    }
+                }
+            }
+        }
+
+        possible_tiles
+    }
+
+    pub fn check_for_checks(&self, player: PlayerEnum) -> bool {
+        println!("{self}");
+
+        let all_moves = self.get_all_possible_moves(player);
+
+        all_moves
+            .iter()
+            .filter_map(|&(i, j)| match self.tiles[i][j] {
+                PieceEnum::BKing if player as usize == PlayerEnum::White as usize => Some((i, j)),
+                PieceEnum::WKing if player as usize == PlayerEnum::Black as usize => Some((i, j)),
+                _ => None,
+            })
+            .count()
+            > 0
     }
 }
