@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use std::ops::Deref;
+
+use bevy::{prelude::*, sprite::Mesh2dHandle};
 use bevy_mod_picking::prelude::*;
 
 use crate::board::{board_to_pixel_coords, draw_possible_moves, pixel_to_board_coords, Board};
@@ -80,6 +82,8 @@ fn on_piece_drag_end(
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
+    meshes: Query<Entity, With<Mesh2dHandle>>,
+    // mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -102,7 +106,12 @@ fn on_piece_drag_end(
             drag_data.target(),
             &mut transform,
             &mut commands,
-        )
+        );
+
+        // Clean up the possible position markers
+        for mesh in meshes.iter() {
+            commands.entity(mesh).despawn();
+        }
     }
 }
 

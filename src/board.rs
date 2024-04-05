@@ -284,7 +284,19 @@ impl Board {
         false
     }
 
-    pub fn get_possible_moves(&self, (i, j): (usize, usize)) {}
+    pub fn get_possible_moves(&self, (i, j): (usize, usize)) -> Vec<(usize, usize)> {
+        // TODO Not efficient but the board is small enough so it should be okay
+        let mut possible_tiles = Vec::new();
+        for k in 0..BOARD_HEIGHT {
+            for l in 0..BOARD_WIDTH {
+                if self.can_move_piece_to((i, j), (k, l)) {
+                    possible_tiles.push((k, l))
+                }
+            }
+        }
+
+        possible_tiles
+    }
 }
 
 pub fn draw_possible_moves(
@@ -292,35 +304,65 @@ pub fn draw_possible_moves(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut transform_query: Query<&mut Transform>,
+    board: Res<Board>,
 ) {
-    // let shapes = [
-    //     Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
-    //     Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
-    //     Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
-    //     Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
-    //     Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
-    //     Mesh2dHandle(meshes.add(Triangle2d::new(
-    //         Vec2::Y * 50.0,
-    //         Vec2::new(-50.0, -50.0),
-    //         Vec2::new(50.0, -50.0),
-    //     ))),
-    // ];
-    // let num_shapes = shapes.len();
+    for drag_data in drag_er.read() {
+        let transform = transform_query.get_mut(drag_data.target).unwrap();
+        let (piece_i, piece_j) =
+            pixel_to_board_coords(transform.translation.x, transform.translation.y);
 
-    // for (i, shape) in shapes.into_iter().enumerate() {
-    //     // Distribute colors evenly across the rainbow.
-    //     let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
+        let possible_moves = board.get_possible_moves((piece_i, piece_j));
 
-    //     commands.spawn(MaterialMesh2dBundle {
-    //         mesh: shape,
-    //         material: materials.add(color),
-    //         transform: Transform::from_xyz(
-    //             // Distribute shapes from -X_EXTENT to +X_EXTENT.
-    //             BOARD_WIDTH as f32 / -2. + i as f32 / (num_shapes - 1) as f32 * BOARD_WIDTH as f32,
-    //             0.0,
-    //             0.0,
-    //         ),
-    //         ..default()
-    //     });
-    // }
+        let shape = Mesh2dHandle(meshes.add(Circle {
+            radius: PIECE_HEIGHT * PIECE_SCALE * 0.8 / 2.,
+        }));
+
+        for (i, pos) in possible_moves.iter().enumerate() {
+            let colour = Color::hsl(360. * i as f32, 0.95, 0.7);
+
+            let (x, y) = board_to_pixel_coords(pos.0, pos.1);
+
+            commands.spawn(MaterialMesh2dBundle {
+                mesh: shape.clone(),
+                material: materials.add(colour),
+                transform: Transform::from_xyz(
+                    // Distribute shapes from -X_EXTENT to +X_EXTENT.
+                    x, y, 1.0,
+                ),
+                ..default()
+            });
+        }
+
+        // let shapes = [
+        //     Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
+        //     Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
+        //     Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
+        //     Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
+        //     Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
+        //     Mesh2dHandle(meshes.add(Triangle2d::new(
+        //         Vec2::Y * 50.0,
+        //         Vec2::new(-50.0, -50.0),
+        //         Vec2::new(50.0, -50.0),
+        //     ))),
+        // ];
+        // let num_shapes = shapes.len();
+
+        // for (i, shape) in shapes.into_iter().enumerate() {
+        //     // Distribute colors evenly across the rainbow.
+        //     let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
+
+        //     commands.spawn(MaterialMesh2dBundle {
+        //         mesh: shape,
+        //         material: materials.add(color),
+        //         transform: Transform::from_xyz(
+        //             // Distribute shapes from -X_EXTENT to +X_EXTENT.
+        //             BOARD_WIDTH as f32 / -2. + i as f32 / (num_shapes - 1) as f32 * BOARD_WIDTH as f32,
+        //             0.0,
+        //             0.0,
+        //         ),
+        //         ..default()
+        //     });
+        // }
+    }
 }
