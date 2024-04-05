@@ -58,3 +58,39 @@ impl Default for Board {
         Board { tiles }
     }
 }
+
+// This just helps with debugging, seeing the internal state of the board
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut message = String::new();
+        for i in (0..self.tiles.len()).rev() {
+            for j in 0..self.tiles[i].len() {
+                message.push_str(
+                    format!(
+                        "{} ",
+                        match self.tiles[i][j] {
+                            PieceEnum::Empty => "*",
+                            PieceEnum::BQueen => "q",
+                            PieceEnum::BKing => "k",
+                            PieceEnum::BKnight => "n",
+                            PieceEnum::BBishop => "b",
+                            PieceEnum::BRook => "r",
+                            PieceEnum::BPawn => "p",
+                            PieceEnum::WQueen => "Q",
+                            PieceEnum::WKing => "K",
+                            PieceEnum::WKnight => "N",
+                            PieceEnum::WBishop => "B",
+                            PieceEnum::WRook => "R",
+                            PieceEnum::WPawn => "P",
+                        }
+                    )
+                    .as_str(),
+                );
+            }
+
+            message.push('\n');
+        }
+
+        write!(f, "{message}")
+    }
+}

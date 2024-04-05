@@ -100,5 +100,7 @@ pub fn on_piece_dropped(
         let moved_piece = board.tiles[ori_i][ori_j];
         board.tiles[ori_i][ori_j] = PieceEnum::Empty;
         board.tiles[i][j] = moved_piece;
+
+        // println!("{}", board.reborrow().into_inner());
     }
 }
