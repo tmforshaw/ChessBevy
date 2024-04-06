@@ -32,20 +32,6 @@ impl From<usize> for PlayerEnum {
     }
 }
 
-#[derive(Event)]
-pub struct CheckmateEvent {
-    pub winning_player: PlayerEnum,
-}
-
-pub fn checkmate_event_read(mut ev_checkmate: EventReader<CheckmateEvent>) {
-    for event in ev_checkmate.read() {
-        println!(
-            "Game has ended: The winning player is {:?}",
-            event.winning_player
-        );
-    }
-}
-
 #[derive(Event, Copy, Clone)]
 pub struct CheckEvent {
     pub player_in_check: PlayerEnum,
@@ -115,5 +101,22 @@ pub fn check_event_read(
         }
 
         board.blocking_moves[check_event.player_in_check as usize] = blocking_moves_to_add;
+    }
+}
+
+#[derive(Event)]
+pub struct CheckmateEvent {
+    pub winning_player: PlayerEnum,
+}
+
+pub fn checkmate_event_read(mut ev_checkmate: EventReader<CheckmateEvent>) {
+    for event in ev_checkmate.read() {
+        println!(
+            "Game has ended: The winning player is {:?}",
+            event.winning_player
+        );
+
+        // TODO Put a timer here
+        // TODO reset board and game
     }
 }
