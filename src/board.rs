@@ -1,6 +1,6 @@
 use crate::{
     piece::{
-        piece_is_black, piece_is_white, Piece, PieceEnum, COLOUR_AMT, PIECE_AMT,
+        piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, COLOUR_AMT, PIECE_AMT,
         PIECE_AMT_PER_SIDE, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
     },
     player::PlayerEnum,
@@ -65,42 +65,6 @@ impl Default for Board {
             player_in_check: None,
             checks: [[None; PIECE_AMT_PER_SIDE]; COLOUR_AMT],
         }
-    }
-}
-
-// This just helps with debugging, seeing the internal state of the board
-impl std::fmt::Display for Board {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut message = String::new();
-        for i in (0..self.tiles.len()).rev() {
-            for j in 0..self.tiles[i].len() {
-                message.push_str(
-                    format!(
-                        "{} ",
-                        match self.tiles[i][j] {
-                            PieceEnum::Empty => "*",
-                            PieceEnum::BQueen => "q",
-                            PieceEnum::BKing => "k",
-                            PieceEnum::BKnight => "n",
-                            PieceEnum::BBishop => "b",
-                            PieceEnum::BRook => "r",
-                            PieceEnum::BPawn => "p",
-                            PieceEnum::WQueen => "Q",
-                            PieceEnum::WKing => "K",
-                            PieceEnum::WKnight => "N",
-                            PieceEnum::WBishop => "B",
-                            PieceEnum::WRook => "R",
-                            PieceEnum::WPawn => "P",
-                        }
-                    )
-                    .as_str(),
-                );
-            }
-
-            message.push('\n');
-        }
-
-        write!(f, "{message}")
     }
 }
 
@@ -171,116 +135,33 @@ impl Board {
         }
     }
 
-    pub fn move_piece(
-        &mut self,
-        (ori_i, ori_j): (usize, usize),
-        (i, j): (usize, usize),
-        moved_piece_entity: Entity,
-        transform: &mut Transform,
-        commands: &mut Commands,
-        // ev_gameover: &mut EventWriter<GameOver>,
-    ) {
-        // Restrict Moves if player's king is in check
-        if let Some(player_in_check) = self.player_in_check {
-            if player_in_check as usize == self.current_player as usize {
-                let mut blocking_moves = Vec::new();
+    pub fn tiles_string(&self) -> String {
+        let mut message = String::new();
 
-                for res_data in self.checks[self.current_player as usize] {
-                    match res_data {
-                        Some((check_from, king_pos)) => {
-                            let mut blocks = self.get_check_stopping_moves(
-                                self.current_player,
-                                check_from,
-                                king_pos,
-                            );
-
-                            blocking_moves.append(&mut blocks);
-                        }
-                        None => {
-                            break;
-                        }
-                    }
-                }
-
-                if blocking_moves.is_empty() {
-                    // There are no moves to block the check => Checkmate
-
-                    let next_player = self.next_player();
-                    println!(
-                        "Checkmate!\n{:?} lost to {:?}",
-                        self.player_in_check, next_player
-                    );
-
-                    // ev_gameover.send(GameOver {
-                    //     winning_player: next_player,
-                    // });
-
-                    // This move does not block check
-                } else if !blocking_moves.contains(&((ori_i, ori_j), (i, j))) {
-                    let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
-                    // Move back to original position
-                    transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
-
-                    println!("{blocking_moves:?}");
-                    return;
-                } else {
-                    self.player_in_check = None;
-                }
+        for i in (0..self.tiles.len()).rev() {
+            for j in 0..self.tiles[i].len() {
+                message.push(match self.tiles[i][j] {
+                    PieceEnum::Empty => '*',
+                    PieceEnum::BQueen => 'q',
+                    PieceEnum::BKing => 'k',
+                    PieceEnum::BKnight => 'n',
+                    PieceEnum::BBishop => 'b',
+                    PieceEnum::BRook => 'r',
+                    PieceEnum::BPawn => 'p',
+                    PieceEnum::WQueen => 'Q',
+                    PieceEnum::WKing => 'K',
+                    PieceEnum::WKnight => 'N',
+                    PieceEnum::WBishop => 'B',
+                    PieceEnum::WRook => 'R',
+                    PieceEnum::WPawn => 'P',
+                });
+                message.push(' ');
             }
+
+            message.push('\n');
         }
 
-        // Exit function if piece can't be moved there
-        if !self.can_move_piece_to((ori_i, ori_j), (i, j))
-            // Don't allow movement on opponents turn
-            || ((piece_is_white(self.tiles[ori_i][ori_j])
-                && self.current_player as usize == PlayerEnum::Black as usize)
-                || (piece_is_black(self.tiles[ori_i][ori_j])
-                    && self.current_player as usize == PlayerEnum::White as usize))
-        {
-            let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
-            // Move back to original position
-            transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
-            return;
-        }
-
-        // Delete pieces on capture
-        if self.tiles[i][j] as usize != PieceEnum::Empty as usize {
-            if let Some(entity) = self.pieces_and_positions[i][j] {
-                commands.entity(entity).despawn();
-            }
-        }
-
-        let (x, y) = board_to_pixel_coords(i, j);
-        transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
-
-        // Update board.tiles to reflect the new board position
-        let moved_piece = self.tiles[ori_i][ori_j];
-        self.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        self.tiles[i][j] = moved_piece;
-        self.pieces_and_positions[ori_i][ori_j] = None;
-        self.pieces_and_positions[i][j] = Some(moved_piece_entity);
-
-        // Check to see if this move has left the opponent in check
-        let checks = self.check_for_checks(self.current_player);
-
-        // Change to the next player in the game
-        self.next_player();
-
-        if !checks.is_empty() {
-            self.player_in_check = Some(self.current_player);
-
-            let mut check_arr = [None; PIECE_AMT_PER_SIDE];
-
-            (0..check_arr.len()).for_each(|i| match checks.get(i) {
-                Some(&value) => check_arr[i] = Some(value),
-                None => check_arr[i] = None,
-            });
-
-            self.checks[self.current_player as usize] = check_arr;
-
-            println!("{:?} is in check", self.current_player);
-            println!("{self}");
-        };
+        message
     }
 
     // Movement
@@ -398,36 +279,6 @@ impl Board {
         false
     }
 
-    // fn path_would_be_blocked(
-    //     &self,
-    //     (ori_i, ori_j): (usize, usize),
-    //     (i, j): (usize, usize),
-    //     board_changes: Vec<(PieceEnum, (usize, usize))>,
-    // ) -> bool {
-    //     let i_diff = i as isize - ori_i as isize;
-    //     let j_diff = j as isize - ori_j as isize;
-
-    //     let mut tiles = self.tiles;
-
-    //     for &(piece, (i, j)) in board_changes.iter() {
-    //         println!("Testing ({i}, {j}) to {piece:?}");
-    //         tiles[i][j] = piece;
-    //     }
-
-    //     // Traverse the maximum distance towards the position in both directions and check for obstructions
-    //     // Going up to exactly this maximum distance would prevent captures
-    //     for k in 1..i_diff.abs().max(j_diff.abs()) {
-    //         let new_i = ((ori_i as isize + k * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT);
-    //         let new_j = ((ori_j as isize + k * j_diff.signum()) as usize).clamp(0, BOARD_WIDTH);
-
-    //         if tiles[new_i][new_j] as usize != PieceEnum::Empty as usize {
-    //             return true;
-    //         }
-    //     }
-
-    //     false
-    // }
-
     pub fn get_possible_moves(&self, (i, j): (usize, usize)) -> Vec<(usize, usize)> {
         // Check every tile on the board to see if the piece at this position can move to them
         let mut possible_tiles = Vec::new();
@@ -540,5 +391,122 @@ impl Board {
         self.current_player = next_player;
 
         next_player
+    }
+}
+
+pub fn move_piece(
+    mut commands: Commands,
+    mut ev_piece_move: EventReader<PieceMove>,
+    mut transform_query: Query<&mut Transform>,
+    mut board: ResMut<Board>,
+) {
+    for piece_move in ev_piece_move.read() {
+        let (ori_i, ori_j) = piece_move.from;
+        let (i, j) = piece_move.to;
+
+        let mut transform = transform_query.get_mut(piece_move.entity).unwrap();
+
+        // Restrict Moves if player's king is in check
+        if let Some(player_in_check) = board.player_in_check {
+            if player_in_check as usize == board.current_player as usize {
+                let mut blocking_moves = Vec::new();
+
+                for res_data in board.checks[board.current_player as usize] {
+                    match res_data {
+                        Some((check_from, king_pos)) => {
+                            let mut blocks = board.get_check_stopping_moves(
+                                board.current_player,
+                                check_from,
+                                king_pos,
+                            );
+
+                            blocking_moves.append(&mut blocks);
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                }
+
+                if blocking_moves.is_empty() {
+                    // There are no moves to block the check => Checkmate
+
+                    let next_player = board.next_player();
+                    println!(
+                        "Checkmate!\n{:?} lost to {:?}",
+                        board.player_in_check, next_player
+                    );
+
+                    // ev_gameover.send(GameOver {
+                    //     winning_player: next_player,
+                    // });
+
+                    // This move does not block check
+                } else if !blocking_moves.contains(&((ori_i, ori_j), (i, j))) {
+                    let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
+                    // Move back to original position
+                    transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
+
+                    println!("{blocking_moves:?}");
+                    return;
+                } else {
+                    board.player_in_check = None;
+                }
+            }
+        }
+
+        // Exit function if piece can't be moved there
+        if !board.can_move_piece_to((ori_i, ori_j), (i, j))
+            // Don't allow movement on opponents turn
+            || ((piece_is_white(board.tiles[ori_i][ori_j])
+                && board.current_player as usize == PlayerEnum::Black as usize)
+                || (piece_is_black(board.tiles[ori_i][ori_j])
+                    && board.current_player as usize == PlayerEnum::White as usize))
+        {
+            let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
+            // Move back to original position
+            transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
+            return;
+        }
+
+        // Delete pieces on capture
+        if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
+            if let Some(entity) = board.pieces_and_positions[i][j] {
+                commands.entity(entity).despawn();
+            }
+        }
+
+        let (x, y) = board_to_pixel_coords(i, j);
+        transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
+
+        // Update board.tiles to reflect the new board position
+        let moved_piece = board.tiles[ori_i][ori_j];
+        board.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        board.tiles[i][j] = moved_piece;
+        board.pieces_and_positions[ori_i][ori_j] = None;
+        board.pieces_and_positions[i][j] = Some(piece_move.entity);
+
+        // Check to see if this move has left the opponent in check
+        let checks = board.check_for_checks(board.current_player);
+
+        // Change to the next player in the game
+        board.next_player();
+
+        if !checks.is_empty() {
+            board.player_in_check = Some(board.current_player);
+
+            let mut check_arr = [None; PIECE_AMT_PER_SIDE];
+
+            (0..check_arr.len()).for_each(|i| match checks.get(i) {
+                Some(&value) => check_arr[i] = Some(value),
+                None => check_arr[i] = None,
+            });
+
+            let current_player = board.current_player;
+            board.checks[current_player as usize] = check_arr;
+
+            println!("{:?} is in check", board.current_player);
+            println!("{}", board.tiles_string());
+        };
     }
 }

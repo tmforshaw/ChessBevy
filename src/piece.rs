@@ -93,13 +93,11 @@ fn on_piece_drag_end(
     mut commands: Commands,
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
-    mut board: ResMut<Board>,
     possible_move_meshes: Query<Entity, With<Mesh2dHandle>>,
-    // mut ev_gameover: EventWriter<GameOver>,
     mut ev_piece_move: EventWriter<PieceMove>,
 ) {
     for drag_data in drag_er.read() {
-        let mut transform = transform_query.get_mut(drag_data.target).unwrap();
+        let transform = transform_query.get_mut(drag_data.target).unwrap();
 
         // Find where the piece was moved from in board coordinates
         let original_pos = transform.translation.xy()
@@ -113,15 +111,11 @@ fn on_piece_drag_end(
             transform.translation.y + PIECE_HEIGHT / 2.,
         );
 
-        // Snap the piece to the board tiles, but move it back to its original square if the move failed
-        board.move_piece(
-            (ori_i, ori_j),
-            (i, j),
-            drag_data.target(),
-            &mut transform,
-            &mut commands,
-            // &mut ev_gameover,
-        );
+        ev_piece_move.send(PieceMove {
+            from: (ori_i, ori_j),
+            to: (i, j),
+            entity: drag_data.target,
+        });
 
         // Clean up the possible move markers
         for mesh in possible_move_meshes.iter() {
@@ -170,7 +164,8 @@ pub fn draw_possible_moves(
 }
 
 #[derive(Event)]
-struct PieceMove {
-    from: (usize, usize),
-    to: (usize, usize),
+pub struct PieceMove {
+    pub from: (usize, usize),
+    pub to: (usize, usize),
+    pub entity: Entity,
 }

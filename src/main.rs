@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
 use bevy_mod_picking::prelude::*;
-use board::Board;
+use board::{move_piece, Board};
+use piece::PieceMove;
 
 pub mod board;
 pub mod piece;
@@ -27,8 +28,9 @@ fn main() {
         // .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
         .init_resource::<Board>()
         .add_systems(Startup, (setup, Board::setup))
+        .add_systems(FixedUpdate, move_piece)
         // .add_systems(FixedUpdate, event_readers)
-        // .add_event::<GameOver>()
+        .add_event::<PieceMove>()
         .run();
 }
 
