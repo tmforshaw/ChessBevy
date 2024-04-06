@@ -177,6 +177,8 @@ impl Board {
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
+        // TODO Add castling and piece pinning
+
         match self.tiles[ori_i][ori_j] {
             PieceEnum::WPawn | PieceEnum::BPawn => {
                 // Allow double movement on pawn's first move
