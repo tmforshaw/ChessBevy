@@ -50,7 +50,7 @@ pub fn checkmate_event_read(mut ev_checkmate: EventReader<CheckmateEvent>) {
 pub struct CheckEvent {
     pub player_in_check: PlayerEnum,
     pub checking_piece: (usize, usize),
-    pub in_check_on: (usize, usize),
+    pub at: (usize, usize),
 }
 
 pub fn check_opponent_for_checks(board: &mut ResMut<Board>) -> Vec<CheckEvent> {
@@ -70,7 +70,7 @@ pub fn check_opponent_for_checks(board: &mut ResMut<Board>) -> Vec<CheckEvent> {
                 Some(CheckEvent {
                     player_in_check: player_being_tested,
                     checking_piece: piece_move.from,
-                    in_check_on: piece_move.to,
+                    at: piece_move.to,
                 })
             } else {
                 None
@@ -91,6 +91,8 @@ pub fn check_event_read(
         board.player_in_check = Some(check_event.player_in_check);
 
         let blocking_moves = board.get_check_stopping_moves(check_event);
+
+        // TODO let kings walk away from check if possible
 
         let blocking_moves_to_add =
             if !board.blocking_moves[check_event.player_in_check as usize].is_empty() {

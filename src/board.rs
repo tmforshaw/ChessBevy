@@ -167,7 +167,7 @@ impl Board {
     }
 
     // Movement
-    fn can_move_piece_to(&self, piece_move: PieceMove) -> bool {
+    fn can_piece_move_to(&self, piece_move: PieceMove) -> bool {
         let (ori_i, ori_j) = piece_move.from;
         let (i, j) = piece_move.to;
 
@@ -293,7 +293,7 @@ impl Board {
         let mut possible_tiles = Vec::new();
         for k in 0..BOARD_HEIGHT {
             for l in 0..BOARD_WIDTH {
-                if self.can_move_piece_to(PieceMove {
+                if self.can_piece_move_to(PieceMove {
                     from: (i, j),
                     to: (k, l),
                 }) {
@@ -337,7 +337,7 @@ impl Board {
                         to: (k, l),
                     };
 
-                    if self.can_move_piece_to(piece_move) {
+                    if self.can_piece_move_to(piece_move) {
                         possible_tiles.push(piece_move)
                     }
                 }
@@ -350,12 +350,12 @@ impl Board {
     pub fn get_check_stopping_moves(&self, check: CheckEvent) -> Vec<PieceMove> {
         let all_moves = self.get_all_possible_moves(check.player_in_check);
 
-        let i_diff = check.in_check_on.0 as isize - check.checking_piece.0 as isize;
-        let j_diff = check.in_check_on.1 as isize - check.checking_piece.1 as isize;
+        let i_diff = check.at.0 as isize - check.checking_piece.0 as isize;
+        let j_diff = check.at.1 as isize - check.checking_piece.1 as isize;
 
-        let mut tiles_to_block = Vec::new();
+        let mut tiles_under_attack = Vec::new();
         for k in 0..i_diff.abs().max(j_diff.abs()) {
-            tiles_to_block.push((
+            tiles_under_attack.push((
                 ((check.checking_piece.0 as isize + k * i_diff.signum()) as usize)
                     .clamp(0, BOARD_HEIGHT - 1),
                 ((check.checking_piece.1 as isize + k * j_diff.signum()) as usize)
@@ -367,9 +367,10 @@ impl Board {
             .iter()
             .filter_map(|&piece_move| {
                 // Move must block check, king can only block check if it is capturing a piece
-                if tiles_to_block.contains(&piece_move.to)
-                    && !(piece_move.from == check.in_check_on
-                        && piece_move.to != check.checking_piece)
+                if (tiles_under_attack.contains(&piece_move.to)
+                    && !(piece_move.from == check.at && piece_move.to != check.checking_piece))
+                    // King can move away from tiles which are underattack
+                    || (piece_move.from == check.at && !tiles_under_attack.contains(&piece_move.to))
                 {
                     Some(piece_move)
                 } else {
@@ -429,7 +430,7 @@ pub fn move_piece(
         }
 
         // Exit function if piece can't be moved there
-        if !board.can_move_piece_to(PieceMove{from:(ori_i, ori_j), to:(i,j)})
+        if !board.can_piece_move_to(PieceMove{from:(ori_i, ori_j), to:(i,j)})
             // Don't allow movement on opponents turn
             || ((piece_is_white(board.tiles[ori_i][ori_j])
                 && board.current_player as usize == PlayerEnum::Black as usize)
