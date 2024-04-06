@@ -1,9 +1,9 @@
 use crate::{
     piece::{
-        piece_is_black, piece_is_white, Piece, PieceEnum, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT,
-        PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
+        piece_is_black, piece_is_white, Piece, PieceEnum, COLOUR_AMT, PIECE_AMT,
+        PIECE_AMT_PER_SIDE, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
     },
-    player::{Player, PlayerEnum},
+    player::PlayerEnum,
 };
 
 use bevy::prelude::*;
@@ -62,6 +62,8 @@ impl Default for Board {
             texture_file: "ChessPiecesArray.png",
             pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
             current_player: PlayerEnum::White,
+            player_in_check: None,
+            checks: [[None; PIECE_AMT_PER_SIDE]; COLOUR_AMT],
         }
     }
 }
@@ -108,6 +110,8 @@ pub struct Board {
     pub texture_file: &'static str,
     pub pieces_and_positions: [[Option<Entity>; BOARD_WIDTH]; BOARD_HEIGHT],
     pub current_player: PlayerEnum,
+    pub player_in_check: Option<PlayerEnum>,
+    pub checks: [[Option<((usize, usize), (usize, usize))>; PIECE_AMT_PER_SIDE]; COLOUR_AMT],
 }
 
 impl Board {
@@ -175,7 +179,39 @@ impl Board {
         transform: &mut Transform,
         commands: &mut Commands,
     ) {
-        let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
+        // Restrict Moves if player's king is in check
+        if let Some(player_in_check) = self.player_in_check {
+            if player_in_check as usize == self.current_player as usize {
+                let mut blocking_moves = Vec::new();
+
+                for res_data in self.checks[self.current_player as usize] {
+                    match res_data {
+                        Some((check_from, king_pos)) => {
+                            let mut blocks = self.get_check_stopping_moves(
+                                self.current_player,
+                                check_from,
+                                king_pos,
+                            );
+
+                            blocking_moves.append(&mut blocks);
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                }
+
+                // This move does not block check
+                if !blocking_moves.contains(&((ori_i, ori_j), (i, j))) {
+                    let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
+                    // Move back to original position
+                    transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
+                    return;
+                } else {
+                    self.player_in_check = None;
+                }
+            }
+        }
 
         // Exit function if piece can't be moved there
         if !self.can_move_piece_to((ori_i, ori_j), (i, j))
@@ -185,6 +221,7 @@ impl Board {
                 || (piece_is_black(self.tiles[ori_i][ori_j])
                     && self.current_player as usize == PlayerEnum::White as usize))
         {
+            let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
             // Move back to original position
             transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
             return;
@@ -207,15 +244,27 @@ impl Board {
         self.pieces_and_positions[ori_i][ori_j] = None;
         self.pieces_and_positions[i][j] = Some(moved_piece_entity);
 
+        // Check to see if this move has left the opponent in check
+        let checks = self.check_for_checks(self.current_player);
+
         // Change to the next player in the game
         self.current_player = (self.current_player as usize + 1).into();
 
-        let in_check = self.check_for_checks(self.current_player);
-        println!(
-            "{:?} {} in check",
-            self.current_player,
-            if in_check { "is" } else { "is not" }
-        );
+        if !checks.is_empty() {
+            self.player_in_check = Some(self.current_player);
+
+            let mut check_arr = [None; PIECE_AMT_PER_SIDE];
+
+            (0..check_arr.len()).for_each(|i| match checks.get(i) {
+                Some(&value) => check_arr[i] = Some(value),
+                None => check_arr[i] = None,
+            });
+
+            self.checks[self.current_player as usize] = check_arr;
+
+            println!("{:?} is in check", self.current_player);
+            println!("{self}");
+        };
     }
 
     // Movement
@@ -241,6 +290,10 @@ impl Board {
                     [((ori_i as isize + i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT)][ori_j]
                     as usize
                     == PieceEnum::Empty as usize
+                    && self.tiles
+                        [((ori_i as isize + 2 * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT)]
+                        [ori_j] as usize
+                        == PieceEnum::Empty as usize
                     && j_diff == 0;
 
                 // Allow the pawn to move up or down depending on player colour
@@ -327,6 +380,36 @@ impl Board {
         false
     }
 
+    // fn path_would_be_blocked(
+    //     &self,
+    //     (ori_i, ori_j): (usize, usize),
+    //     (i, j): (usize, usize),
+    //     board_changes: Vec<(PieceEnum, (usize, usize))>,
+    // ) -> bool {
+    //     let i_diff = i as isize - ori_i as isize;
+    //     let j_diff = j as isize - ori_j as isize;
+
+    //     let mut tiles = self.tiles;
+
+    //     for &(piece, (i, j)) in board_changes.iter() {
+    //         println!("Testing ({i}, {j}) to {piece:?}");
+    //         tiles[i][j] = piece;
+    //     }
+
+    //     // Traverse the maximum distance towards the position in both directions and check for obstructions
+    //     // Going up to exactly this maximum distance would prevent captures
+    //     for k in 1..i_diff.abs().max(j_diff.abs()) {
+    //         let new_i = ((ori_i as isize + k * i_diff.signum()) as usize).clamp(0, BOARD_HEIGHT);
+    //         let new_j = ((ori_j as isize + k * j_diff.signum()) as usize).clamp(0, BOARD_WIDTH);
+
+    //         if tiles[new_i][new_j] as usize != PieceEnum::Empty as usize {
+    //             return true;
+    //         }
+    //     }
+
+    //     false
+    // }
+
     pub fn get_possible_moves(&self, (i, j): (usize, usize)) -> Vec<(usize, usize)> {
         // Check every tile on the board to see if the piece at this position can move to them
         let mut possible_tiles = Vec::new();
@@ -345,17 +428,24 @@ impl Board {
         self.tiles
             .iter()
             .enumerate()
-            .filter_map(|(i, row)| {
-                let j = row.iter().position(|&piece| match player {
+            .flat_map(|(i, arr)| {
+                let arr = arr.iter().enumerate();
+                std::iter::repeat(i).zip(arr)
+            })
+            .filter_map(|(i, (j, &piece))| {
+                match player {
                     PlayerEnum::White => piece_is_white(piece),
                     PlayerEnum::Black => piece_is_black(piece),
-                })?;
-                Some((i, j))
+                }
+                .then_some((i, j))
             })
             .collect()
     }
 
-    pub fn get_all_possible_moves(&self, player: PlayerEnum) -> Vec<(usize, usize)> {
+    pub fn get_all_possible_moves(
+        &self,
+        player: PlayerEnum,
+    ) -> Vec<((usize, usize), (usize, usize))> {
         let player_pieces = self.get_player_piece_positions(player);
 
         // TODO very very inefficeient, makes me sad
@@ -365,7 +455,7 @@ impl Board {
             for k in 0..BOARD_HEIGHT {
                 for l in 0..BOARD_WIDTH {
                     if self.can_move_piece_to(piece_pos, (k, l)) {
-                        possible_tiles.push((k, l))
+                        possible_tiles.push((piece_pos, (k, l)))
                     }
                 }
             }
@@ -374,19 +464,53 @@ impl Board {
         possible_tiles
     }
 
-    pub fn check_for_checks(&self, player: PlayerEnum) -> bool {
-        println!("{self}");
+    pub fn get_check_stopping_moves(
+        &self,
+        player: PlayerEnum,
+        in_check_from: (usize, usize),
+        king_pos: (usize, usize),
+    ) -> Vec<((usize, usize), (usize, usize))> {
+        let all_moves = self.get_all_possible_moves(player);
 
+        let i_diff = king_pos.0 as isize - in_check_from.0 as isize;
+        let j_diff = king_pos.1 as isize - in_check_from.1 as isize;
+
+        let mut tiles_to_block = Vec::new();
+        for k in 0..i_diff.abs().max(j_diff.abs()) {
+            tiles_to_block.push((
+                ((in_check_from.0 as isize + k * i_diff.signum()) as usize)
+                    .clamp(0, BOARD_HEIGHT - 1),
+                ((in_check_from.1 as isize + k * j_diff.signum()) as usize)
+                    .clamp(0, BOARD_WIDTH - 1),
+            ));
+        }
+
+        all_moves
+            .iter()
+            .filter_map(|&(from_pos, to_pos)| {
+                if tiles_to_block.contains(&to_pos) && from_pos != king_pos {
+                    Some((from_pos, to_pos))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn check_for_checks(&self, player: PlayerEnum) -> Vec<((usize, usize), (usize, usize))> {
         let all_moves = self.get_all_possible_moves(player);
 
         all_moves
             .iter()
-            .filter_map(|&(i, j)| match self.tiles[i][j] {
-                PieceEnum::BKing if player as usize == PlayerEnum::White as usize => Some((i, j)),
-                PieceEnum::WKing if player as usize == PlayerEnum::Black as usize => Some((i, j)),
+            .filter_map(|&(attacking_piece_pos, (i, j))| match self.tiles[i][j] {
+                PieceEnum::BKing if player as usize == PlayerEnum::White as usize => {
+                    Some((attacking_piece_pos, (i, j)))
+                }
+                PieceEnum::WKing if player as usize == PlayerEnum::Black as usize => {
+                    Some((attacking_piece_pos, (i, j)))
+                }
                 _ => None,
             })
-            .count()
-            > 0
+            .collect()
     }
 }

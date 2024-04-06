@@ -4,10 +4,12 @@ use bevy::{
 };
 use bevy_mod_picking::prelude::*;
 
-use crate::board::{board_to_pixel_coords, pixel_to_board_coords, Board};
+use crate::board::{board_to_pixel_coords, pixel_to_board_coords, Board, BOARD_WIDTH};
 
 pub const PIECE_AMT: usize = 6;
 pub const COLOUR_AMT: usize = 2;
+pub const PIECE_AMT_PER_SIDE: usize = PIECE_AMT * 2 - 4 + BOARD_WIDTH;
+
 pub const PIECE_WIDTH: f32 = 120.;
 pub const PIECE_HEIGHT: f32 = 120.;
 pub const PIECE_WIDTH_IMG: f32 = 60.;
@@ -92,7 +94,7 @@ fn on_piece_drag_end(
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
-    meshes: Query<Entity, With<Mesh2dHandle>>,
+    possible_move_meshes: Query<Entity, With<Mesh2dHandle>>,
 ) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -119,9 +121,29 @@ fn on_piece_drag_end(
         );
 
         // Clean up the possible move markers
-        for mesh in meshes.iter() {
+        for mesh in possible_move_meshes.iter() {
             commands.entity(mesh).despawn();
         }
+    }
+}
+
+pub fn draw_moves(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    moves: Vec<(usize, usize)>,
+) {
+    for pos in moves.iter() {
+        let (x, y) = board_to_pixel_coords(pos.0, pos.1);
+
+        commands.spawn(MaterialMesh2dBundle {
+            mesh: Mesh2dHandle(meshes.add(Circle {
+                radius: PIECE_HEIGHT * 0.8 / 2., // Circle with 0.8x the width of a tile
+            })),
+            material: materials.add(Color::hsla(285., 0.60, 0.5, 0.85)),
+            transform: Transform::from_xyz(x, y, 2.0), // z = 2.0 puts it above all pieces except the one being held
+            ..default()
+        });
     }
 }
 
@@ -140,17 +162,6 @@ pub fn draw_possible_moves(
         let possible_moves = board.get_possible_moves((i, j));
 
         // Draw markers on each of the possible move tiles
-        for pos in possible_moves.iter() {
-            let (x, y) = board_to_pixel_coords(pos.0, pos.1);
-
-            commands.spawn(MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(meshes.add(Circle {
-                    radius: PIECE_HEIGHT * 0.8 / 2., // Circle with 0.8x the width of a tile
-                })),
-                material: materials.add(Color::hsla(285., 0.60, 0.5, 0.85)),
-                transform: Transform::from_xyz(x, y, 2.0), // z = 2.0 puts it above all pieces except the one being held
-                ..default()
-            });
-        }
+        draw_moves(&mut commands, &mut meshes, &mut materials, possible_moves);
     }
 }
