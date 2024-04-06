@@ -1,9 +1,9 @@
 use crate::{
+    game::{check_opponent_for_checks, Check, PlayerEnum},
     piece::{
         piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, COLOUR_AMT, PIECE_AMT,
-        PIECE_AMT_PER_SIDE, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
+        PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
     },
-    player::PlayerEnum,
 };
 
 use bevy::prelude::*;
@@ -49,13 +49,15 @@ impl Default for Board {
         tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
         tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
-        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
+        // tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
         tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
         tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
 
-        tiles[2][6] = PieceEnum::BPawn;
+        tiles[2][6] = PieceEnum::WPawn;
+        tiles[1][5] = PieceEnum::Empty;
+        tiles[4][7] = PieceEnum::BQueen;
 
         Board {
             tiles,
@@ -63,19 +65,19 @@ impl Default for Board {
             pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
             current_player: PlayerEnum::White,
             player_in_check: None,
-            checks: [[None; PIECE_AMT_PER_SIDE]; COLOUR_AMT],
+            blocking_moves: std::array::from_fn(|_| Vec::new()),
         }
     }
 }
 
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Clone)]
 pub struct Board {
     pub tiles: [[PieceEnum; BOARD_WIDTH]; BOARD_HEIGHT],
     pub texture_file: &'static str,
     pub pieces_and_positions: [[Option<Entity>; BOARD_WIDTH]; BOARD_HEIGHT],
     pub current_player: PlayerEnum,
     pub player_in_check: Option<PlayerEnum>,
-    pub checks: [[Option<((usize, usize), (usize, usize))>; PIECE_AMT_PER_SIDE]; COLOUR_AMT],
+    pub blocking_moves: [Vec<((usize, usize), (usize, usize))>; COLOUR_AMT],
 }
 
 impl Board {
@@ -333,23 +335,18 @@ impl Board {
         possible_tiles
     }
 
-    pub fn get_check_stopping_moves(
-        &self,
-        player: PlayerEnum,
-        in_check_from: (usize, usize),
-        king_pos: (usize, usize),
-    ) -> Vec<((usize, usize), (usize, usize))> {
-        let all_moves = self.get_all_possible_moves(player);
+    pub fn get_check_stopping_moves(&self, check: Check) -> Vec<((usize, usize), (usize, usize))> {
+        let all_moves = self.get_all_possible_moves(check.player_in_check);
 
-        let i_diff = king_pos.0 as isize - in_check_from.0 as isize;
-        let j_diff = king_pos.1 as isize - in_check_from.1 as isize;
+        let i_diff = check.in_check_on.0 as isize - check.checking_piece.0 as isize;
+        let j_diff = check.in_check_on.1 as isize - check.checking_piece.1 as isize;
 
         let mut tiles_to_block = Vec::new();
         for k in 0..i_diff.abs().max(j_diff.abs()) {
             tiles_to_block.push((
-                ((in_check_from.0 as isize + k * i_diff.signum()) as usize)
+                ((check.checking_piece.0 as isize + k * i_diff.signum()) as usize)
                     .clamp(0, BOARD_HEIGHT - 1),
-                ((in_check_from.1 as isize + k * j_diff.signum()) as usize)
+                ((check.checking_piece.1 as isize + k * j_diff.signum()) as usize)
                     .clamp(0, BOARD_WIDTH - 1),
             ));
         }
@@ -359,7 +356,7 @@ impl Board {
             .filter_map(|&(from_pos, to_pos)| {
                 // Move must block check, king can only block check if it is capturing a piece
                 if tiles_to_block.contains(&to_pos)
-                    && !(from_pos == king_pos && to_pos != in_check_from)
+                    && !(from_pos == check.in_check_on && to_pos != check.checking_piece)
                 {
                     Some((from_pos, to_pos))
                 } else {
@@ -369,34 +366,26 @@ impl Board {
             .collect()
     }
 
-    pub fn check_for_checks(&self, player: PlayerEnum) -> Vec<((usize, usize), (usize, usize))> {
-        let all_moves = self.get_all_possible_moves(player);
-
-        all_moves
-            .iter()
-            .filter_map(|&(attacking_piece_pos, (i, j))| match self.tiles[i][j] {
-                PieceEnum::BKing if player as usize == PlayerEnum::White as usize => {
-                    Some((attacking_piece_pos, (i, j)))
-                }
-                PieceEnum::WKing if player as usize == PlayerEnum::Black as usize => {
-                    Some((attacking_piece_pos, (i, j)))
-                }
-                _ => None,
-            })
-            .collect()
-    }
-
     pub fn next_player(&mut self) -> PlayerEnum {
-        let next_player = (self.current_player as usize + 1).into();
+        let next_player = self.see_next_player();
         self.current_player = next_player;
 
         next_player
+    }
+
+    pub fn see_next_player(&self) -> PlayerEnum {
+        self.get_next_player(self.current_player)
+    }
+
+    pub fn get_next_player(&self, player: PlayerEnum) -> PlayerEnum {
+        (player as usize + 1).into()
     }
 }
 
 pub fn move_piece(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMove>,
+    mut ev_check: EventWriter<Check>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
 ) {
@@ -409,47 +398,17 @@ pub fn move_piece(
         // Restrict Moves if player's king is in check
         if let Some(player_in_check) = board.player_in_check {
             if player_in_check as usize == board.current_player as usize {
-                let mut blocking_moves = Vec::new();
-
-                for res_data in board.checks[board.current_player as usize] {
-                    match res_data {
-                        Some((check_from, king_pos)) => {
-                            let mut blocks = board.get_check_stopping_moves(
-                                board.current_player,
-                                check_from,
-                                king_pos,
-                            );
-
-                            blocking_moves.append(&mut blocks);
-                        }
-                        None => {
-                            break;
-                        }
-                    }
-                }
-
-                if blocking_moves.is_empty() {
-                    // There are no moves to block the check => Checkmate
-
-                    let next_player = board.next_player();
-                    println!(
-                        "Checkmate!\n{:?} lost to {:?}",
-                        board.player_in_check, next_player
-                    );
-
-                    // ev_gameover.send(GameOver {
-                    //     winning_player: next_player,
-                    // });
-
-                    // This move does not block check
-                } else if !blocking_moves.contains(&((ori_i, ori_j), (i, j))) {
+                // This move does not block check
+                if !board.blocking_moves[board.current_player as usize]
+                    .contains(&((ori_i, ori_j), (i, j)))
+                {
                     let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
                     // Move back to original position
                     transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
 
-                    println!("{blocking_moves:?}");
                     return;
                 } else {
+                    board.blocking_moves[player_in_check as usize] = Vec::new();
                     board.player_in_check = None;
                 }
             }
@@ -487,26 +446,13 @@ pub fn move_piece(
         board.pieces_and_positions[i][j] = Some(piece_move.entity);
 
         // Check to see if this move has left the opponent in check
-        let checks = board.check_for_checks(board.current_player);
+        let checks = check_opponent_for_checks(&mut board);
+
+        for &check in checks.iter() {
+            ev_check.send(check);
+        }
 
         // Change to the next player in the game
         board.next_player();
-
-        if !checks.is_empty() {
-            board.player_in_check = Some(board.current_player);
-
-            let mut check_arr = [None; PIECE_AMT_PER_SIDE];
-
-            (0..check_arr.len()).for_each(|i| match checks.get(i) {
-                Some(&value) => check_arr[i] = Some(value),
-                None => check_arr[i] = None,
-            });
-
-            let current_player = board.current_player;
-            board.checks[current_player as usize] = check_arr;
-
-            println!("{:?} is in check", board.current_player);
-            println!("{}", board.tiles_string());
-        };
     }
 }

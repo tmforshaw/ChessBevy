@@ -2,11 +2,12 @@ use bevy::prelude::*;
 
 use bevy_mod_picking::prelude::*;
 use board::{move_piece, Board};
+use game::{check_event_read, checkmate_event_read, Check, Checkmate};
 use piece::PieceMove;
 
 pub mod board;
+pub mod game;
 pub mod piece;
-pub mod player;
 
 fn main() {
     App::new()
@@ -28,18 +29,17 @@ fn main() {
         // .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
         .init_resource::<Board>()
         .add_systems(Startup, (setup, Board::setup))
-        .add_systems(FixedUpdate, move_piece)
+        .add_systems(
+            FixedUpdate,
+            (move_piece, checkmate_event_read, check_event_read),
+        )
         // .add_systems(FixedUpdate, event_readers)
         .add_event::<PieceMove>()
+        .add_event::<Checkmate>()
+        .add_event::<Check>()
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
-
-// fn event_readers(mut ev_piece_moved: EventReader<PieceMove>, mut board: ResMut<Board>) {
-//     for piece_move in ev_piece_moved {
-//         board.move_piece(piece_move.from,piece_move.to ,piece_move.entity , , )
-//     }
-// }
