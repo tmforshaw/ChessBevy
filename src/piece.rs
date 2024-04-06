@@ -94,7 +94,7 @@ fn on_piece_drag_end(
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
     possible_move_meshes: Query<Entity, With<Mesh2dHandle>>,
-    mut ev_piece_move: EventWriter<PieceMove>,
+    mut ev_piece_move: EventWriter<PieceMoveEvent>,
 ) {
     for drag_data in drag_er.read() {
         let transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -111,9 +111,11 @@ fn on_piece_drag_end(
             transform.translation.y + PIECE_HEIGHT / 2.,
         );
 
-        ev_piece_move.send(PieceMove {
-            from: (ori_i, ori_j),
-            to: (i, j),
+        ev_piece_move.send(PieceMoveEvent {
+            to_from: PieceMove {
+                from: (ori_i, ori_j),
+                to: (i, j),
+            },
             entity: drag_data.target,
         });
 
@@ -164,8 +166,13 @@ pub fn draw_possible_moves(
 }
 
 #[derive(Event)]
+pub struct PieceMoveEvent {
+    pub to_from: PieceMove,
+    pub entity: Entity,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PieceMove {
     pub from: (usize, usize),
     pub to: (usize, usize),
-    pub entity: Entity,
 }

@@ -1,8 +1,8 @@
 use crate::{
-    game::{check_opponent_for_checks, Check, PlayerEnum},
+    game::{check_opponent_for_checks, CheckEvent, PlayerEnum},
     piece::{
-        piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, COLOUR_AMT, PIECE_AMT,
-        PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
+        piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, PieceMoveEvent, COLOUR_AMT,
+        PIECE_AMT, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
     },
 };
 
@@ -77,7 +77,7 @@ pub struct Board {
     pub pieces_and_positions: [[Option<Entity>; BOARD_WIDTH]; BOARD_HEIGHT],
     pub current_player: PlayerEnum,
     pub player_in_check: Option<PlayerEnum>,
-    pub blocking_moves: [Vec<((usize, usize), (usize, usize))>; COLOUR_AMT],
+    pub blocking_moves: [Vec<PieceMove>; COLOUR_AMT],
 }
 
 impl Board {
@@ -167,7 +167,10 @@ impl Board {
     }
 
     // Movement
-    fn can_move_piece_to(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+    fn can_move_piece_to(&self, piece_move: PieceMove) -> bool {
+        let (ori_i, ori_j) = piece_move.from;
+        let (i, j) = piece_move.to;
+
         // Can't take your own pieces
         if (piece_is_white(self.tiles[ori_i][ori_j]) && piece_is_white(self.tiles[i][j]))
             || (piece_is_black(self.tiles[ori_i][ori_j]) && piece_is_black(self.tiles[i][j]))
@@ -216,13 +219,10 @@ impl Board {
 
                 first_move || vertical_movement && (normal_movement || capture_bool)
             }
-            PieceEnum::WRook | PieceEnum::BRook => self.can_move_straight((ori_i, ori_j), (i, j)),
-            PieceEnum::WBishop | PieceEnum::BBishop => {
-                self.can_move_diagonal((ori_i, ori_j), (i, j))
-            }
+            PieceEnum::WRook | PieceEnum::BRook => self.can_move_straight(piece_move),
+            PieceEnum::WBishop | PieceEnum::BBishop => self.can_move_diagonal(piece_move),
             PieceEnum::WQueen | PieceEnum::BQueen => {
-                self.can_move_straight((ori_i, ori_j), (i, j))
-                    || self.can_move_diagonal((ori_i, ori_j), (i, j))
+                self.can_move_straight(piece_move) || self.can_move_diagonal(piece_move)
             }
             PieceEnum::WKnight | PieceEnum::BKnight => {
                 // Move one square in one direction, and two in the other
@@ -230,9 +230,7 @@ impl Board {
             }
             PieceEnum::WKing | PieceEnum::BKing => {
                 // Move 1 in either (or both) directions
-                i_diff.abs() <= 1
-                    && j_diff.abs() <= 1
-                    && !self.is_path_blocked((ori_i, ori_j), (i, j))
+                i_diff.abs() <= 1 && j_diff.abs() <= 1 && !self.is_path_blocked(piece_move)
             }
             // Should never reach this point
             PieceEnum::Empty => {
@@ -242,7 +240,10 @@ impl Board {
         }
     }
 
-    fn can_move_straight(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+    fn can_move_straight(&self, piece_move: PieceMove) -> bool {
+        let (ori_i, ori_j) = piece_move.from;
+        let (i, j) = piece_move.to;
+
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
@@ -250,20 +251,26 @@ impl Board {
         let straight_movement =
             (i_diff.abs() > 0 && j_diff == 0) || (j_diff.abs() > 0 && i_diff == 0);
 
-        straight_movement && !self.is_path_blocked((ori_i, ori_j), (i, j))
+        straight_movement && !self.is_path_blocked(piece_move)
     }
 
-    fn can_move_diagonal(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+    fn can_move_diagonal(&self, piece_move: PieceMove) -> bool {
+        let (ori_i, ori_j) = piece_move.from;
+        let (i, j) = piece_move.to;
+
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
         // Allow movement only along 45 degree diagonal (y = x)
         let diagonal_movement = i_diff.abs() == j_diff.abs();
 
-        diagonal_movement && !self.is_path_blocked((ori_i, ori_j), (i, j))
+        diagonal_movement && !self.is_path_blocked(piece_move)
     }
 
-    fn is_path_blocked(&self, (ori_i, ori_j): (usize, usize), (i, j): (usize, usize)) -> bool {
+    fn is_path_blocked(&self, piece_move: PieceMove) -> bool {
+        let (ori_i, ori_j) = piece_move.from;
+        let (i, j) = piece_move.to;
+
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
@@ -286,7 +293,10 @@ impl Board {
         let mut possible_tiles = Vec::new();
         for k in 0..BOARD_HEIGHT {
             for l in 0..BOARD_WIDTH {
-                if self.can_move_piece_to((i, j), (k, l)) {
+                if self.can_move_piece_to(PieceMove {
+                    from: (i, j),
+                    to: (k, l),
+                }) {
                     possible_tiles.push((k, l))
                 }
             }
@@ -313,10 +323,7 @@ impl Board {
             .collect()
     }
 
-    pub fn get_all_possible_moves(
-        &self,
-        player: PlayerEnum,
-    ) -> Vec<((usize, usize), (usize, usize))> {
+    pub fn get_all_possible_moves(&self, player: PlayerEnum) -> Vec<PieceMove> {
         let player_pieces = self.get_player_piece_positions(player);
 
         // TODO very very inefficeient, makes me sad
@@ -325,8 +332,13 @@ impl Board {
             // Check every tile on the board to see if the piece at this position can move to them
             for k in 0..BOARD_HEIGHT {
                 for l in 0..BOARD_WIDTH {
-                    if self.can_move_piece_to(piece_pos, (k, l)) {
-                        possible_tiles.push((piece_pos, (k, l)))
+                    let piece_move = PieceMove {
+                        from: piece_pos,
+                        to: (k, l),
+                    };
+
+                    if self.can_move_piece_to(piece_move) {
+                        possible_tiles.push(piece_move)
                     }
                 }
             }
@@ -335,7 +347,7 @@ impl Board {
         possible_tiles
     }
 
-    pub fn get_check_stopping_moves(&self, check: Check) -> Vec<((usize, usize), (usize, usize))> {
+    pub fn get_check_stopping_moves(&self, check: CheckEvent) -> Vec<PieceMove> {
         let all_moves = self.get_all_possible_moves(check.player_in_check);
 
         let i_diff = check.in_check_on.0 as isize - check.checking_piece.0 as isize;
@@ -353,12 +365,13 @@ impl Board {
 
         all_moves
             .iter()
-            .filter_map(|&(from_pos, to_pos)| {
+            .filter_map(|&piece_move| {
                 // Move must block check, king can only block check if it is capturing a piece
-                if tiles_to_block.contains(&to_pos)
-                    && !(from_pos == check.in_check_on && to_pos != check.checking_piece)
+                if tiles_to_block.contains(&piece_move.to)
+                    && !(piece_move.from == check.in_check_on
+                        && piece_move.to != check.checking_piece)
                 {
-                    Some((from_pos, to_pos))
+                    Some(piece_move)
                 } else {
                     None
                 }
@@ -384,24 +397,25 @@ impl Board {
 
 pub fn move_piece(
     mut commands: Commands,
-    mut ev_piece_move: EventReader<PieceMove>,
-    mut ev_check: EventWriter<Check>,
+    mut ev_piece_move: EventReader<PieceMoveEvent>,
+    mut ev_check: EventWriter<CheckEvent>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
 ) {
-    for piece_move in ev_piece_move.read() {
-        let (ori_i, ori_j) = piece_move.from;
-        let (i, j) = piece_move.to;
+    for piece_move_event in ev_piece_move.read() {
+        let (ori_i, ori_j) = piece_move_event.to_from.from;
+        let (i, j) = piece_move_event.to_from.to;
 
-        let mut transform = transform_query.get_mut(piece_move.entity).unwrap();
+        let mut transform = transform_query.get_mut(piece_move_event.entity).unwrap();
 
         // Restrict Moves if player's king is in check
         if let Some(player_in_check) = board.player_in_check {
             if player_in_check as usize == board.current_player as usize {
                 // This move does not block check
-                if !board.blocking_moves[board.current_player as usize]
-                    .contains(&((ori_i, ori_j), (i, j)))
-                {
+                if !board.blocking_moves[board.current_player as usize].contains(&PieceMove {
+                    from: (ori_i, ori_j),
+                    to: (i, j),
+                }) {
                     let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
                     // Move back to original position
                     transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
@@ -415,7 +429,7 @@ pub fn move_piece(
         }
 
         // Exit function if piece can't be moved there
-        if !board.can_move_piece_to((ori_i, ori_j), (i, j))
+        if !board.can_move_piece_to(PieceMove{from:(ori_i, ori_j), to:(i,j)})
             // Don't allow movement on opponents turn
             || ((piece_is_white(board.tiles[ori_i][ori_j])
                 && board.current_player as usize == PlayerEnum::Black as usize)
@@ -443,7 +457,7 @@ pub fn move_piece(
         board.tiles[ori_i][ori_j] = PieceEnum::Empty;
         board.tiles[i][j] = moved_piece;
         board.pieces_and_positions[ori_i][ori_j] = None;
-        board.pieces_and_positions[i][j] = Some(piece_move.entity);
+        board.pieces_and_positions[i][j] = Some(piece_move_event.entity);
 
         // Check to see if this move has left the opponent in check
         let checks = check_opponent_for_checks(&mut board);

@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 use bevy_mod_picking::prelude::*;
 use board::{move_piece, Board};
-use game::{check_event_read, checkmate_event_read, Check, Checkmate};
-use piece::PieceMove;
+use game::{check_event_read, checkmate_event_read, CheckEvent, CheckmateEvent};
+use piece::PieceMoveEvent;
 
 pub mod board;
 pub mod game;
@@ -34,9 +34,9 @@ fn main() {
             (move_piece, checkmate_event_read, check_event_read),
         )
         // .add_systems(FixedUpdate, event_readers)
-        .add_event::<PieceMove>()
-        .add_event::<Checkmate>()
-        .add_event::<Check>()
+        .add_event::<PieceMoveEvent>()
+        .add_event::<CheckmateEvent>()
+        .add_event::<CheckEvent>()
         .run();
 }
 

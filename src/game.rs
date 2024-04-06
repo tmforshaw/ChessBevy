@@ -33,12 +33,12 @@ impl From<usize> for PlayerEnum {
 }
 
 #[derive(Event)]
-pub struct Checkmate {
+pub struct CheckmateEvent {
     pub winning_player: PlayerEnum,
 }
 
-pub fn checkmate_event_read(mut ev_game_over: EventReader<Checkmate>) {
-    for event in ev_game_over.read() {
+pub fn checkmate_event_read(mut ev_checkmate: EventReader<CheckmateEvent>) {
+    for event in ev_checkmate.read() {
         println!(
             "Game has ended: The winning player is {:?}",
             event.winning_player
@@ -47,29 +47,30 @@ pub fn checkmate_event_read(mut ev_game_over: EventReader<Checkmate>) {
 }
 
 #[derive(Event, Copy, Clone)]
-pub struct Check {
+pub struct CheckEvent {
     pub player_in_check: PlayerEnum,
     pub checking_piece: (usize, usize),
     pub in_check_on: (usize, usize),
 }
 
-pub fn check_opponent_for_checks(board: &mut ResMut<Board>) -> Vec<Check> {
+pub fn check_opponent_for_checks(board: &mut ResMut<Board>) -> Vec<CheckEvent> {
     let player_being_tested = board.see_next_player();
 
     let all_moves = board.get_all_possible_moves(board.current_player);
 
     all_moves
         .iter()
-        .filter_map(|&(attacking_piece_pos, (i, j))| {
-            if (board.tiles[i][j] as usize == PieceEnum::BKing as usize
+        .filter_map(|&piece_move| {
+            if (board.tiles[piece_move.to.0][piece_move.to.1] as usize == PieceEnum::BKing as usize
                 && player_being_tested as usize == PlayerEnum::Black as usize)
-                || (board.tiles[i][j] as usize == PieceEnum::WKing as usize
+                || (board.tiles[piece_move.to.0][piece_move.to.1] as usize
+                    == PieceEnum::WKing as usize
                     && player_being_tested as usize == PlayerEnum::White as usize)
             {
-                Some(Check {
+                Some(CheckEvent {
                     player_in_check: player_being_tested,
-                    checking_piece: attacking_piece_pos,
-                    in_check_on: (i, j),
+                    checking_piece: piece_move.from,
+                    in_check_on: piece_move.to,
                 })
             } else {
                 None
@@ -79,11 +80,11 @@ pub fn check_opponent_for_checks(board: &mut ResMut<Board>) -> Vec<Check> {
 }
 
 pub fn check_event_read(
-    mut ev_game_over: EventReader<Check>,
-    mut ev_checkmate: EventWriter<Checkmate>,
+    mut ev_check: EventReader<CheckEvent>,
+    mut ev_checkmate: EventWriter<CheckmateEvent>,
     mut board: ResMut<Board>,
 ) {
-    for &check_event in ev_game_over.read() {
+    for &check_event in ev_check.read() {
         println!("{:?} is in check", check_event.player_in_check);
         println!("{}", board.tiles_string());
 
@@ -106,7 +107,7 @@ pub fn check_event_read(
         // There are no moves to block the check
         if blocking_moves_to_add.is_empty() {
             // It is checkmate
-            ev_checkmate.send(Checkmate {
+            ev_checkmate.send(CheckmateEvent {
                 winning_player: board.get_next_player(check_event.player_in_check),
             });
         }
