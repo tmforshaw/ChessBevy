@@ -49,15 +49,11 @@ impl Default for Board {
         tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
         tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
-        // tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
+        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
         tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
         tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
         tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
-
-        tiles[2][6] = PieceEnum::WPawn;
-        tiles[1][5] = PieceEnum::Empty;
-        tiles[4][7] = PieceEnum::BQueen;
 
         Board {
             tiles,
