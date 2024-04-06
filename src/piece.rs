@@ -95,6 +95,8 @@ fn on_piece_drag_end(
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
     possible_move_meshes: Query<Entity, With<Mesh2dHandle>>,
+    // mut ev_gameover: EventWriter<GameOver>,
+    mut ev_piece_move: EventWriter<PieceMove>,
 ) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -118,6 +120,7 @@ fn on_piece_drag_end(
             drag_data.target(),
             &mut transform,
             &mut commands,
+            // &mut ev_gameover,
         );
 
         // Clean up the possible move markers
@@ -164,4 +167,10 @@ pub fn draw_possible_moves(
         // Draw markers on each of the possible move tiles
         draw_moves(&mut commands, &mut meshes, &mut materials, possible_moves);
     }
+}
+
+#[derive(Event)]
+struct PieceMove {
+    from: (usize, usize),
+    to: (usize, usize),
 }

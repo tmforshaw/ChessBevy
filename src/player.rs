@@ -29,3 +29,14 @@ impl From<usize> for PlayerEnum {
         }
     }
 }
+
+// #[derive(Event, Debug)]
+// pub struct GameOver {
+//     pub winning_player: PlayerEnum,
+// }
+
+// pub fn game_over_read(mut ev_gameover: EventReader<GameOver>) {
+//     for event in ev_gameover.read() {
+//         println!("game over happened {event:?}");
+//     }
+// }

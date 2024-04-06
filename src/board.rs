@@ -178,6 +178,7 @@ impl Board {
         moved_piece_entity: Entity,
         transform: &mut Transform,
         commands: &mut Commands,
+        // ev_gameover: &mut EventWriter<GameOver>,
     ) {
         // Restrict Moves if player's king is in check
         if let Some(player_in_check) = self.player_in_check {
@@ -201,11 +202,26 @@ impl Board {
                     }
                 }
 
-                // This move does not block check
-                if !blocking_moves.contains(&((ori_i, ori_j), (i, j))) {
+                if blocking_moves.is_empty() {
+                    // There are no moves to block the check => Checkmate
+
+                    let next_player = self.next_player();
+                    println!(
+                        "Checkmate!\n{:?} lost to {:?}",
+                        self.player_in_check, next_player
+                    );
+
+                    // ev_gameover.send(GameOver {
+                    //     winning_player: next_player,
+                    // });
+
+                    // This move does not block check
+                } else if !blocking_moves.contains(&((ori_i, ori_j), (i, j))) {
                     let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
                     // Move back to original position
                     transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
+
+                    println!("{blocking_moves:?}");
                     return;
                 } else {
                     self.player_in_check = None;
@@ -248,7 +264,7 @@ impl Board {
         let checks = self.check_for_checks(self.current_player);
 
         // Change to the next player in the game
-        self.current_player = (self.current_player as usize + 1).into();
+        self.next_player();
 
         if !checks.is_empty() {
             self.player_in_check = Some(self.current_player);
@@ -295,6 +311,8 @@ impl Board {
                         [ori_j] as usize
                         == PieceEnum::Empty as usize
                     && j_diff == 0;
+
+                // TODO En passant move
 
                 // Allow the pawn to move up or down depending on player colour
                 // This affects captures as well
@@ -488,7 +506,10 @@ impl Board {
         all_moves
             .iter()
             .filter_map(|&(from_pos, to_pos)| {
-                if tiles_to_block.contains(&to_pos) && from_pos != king_pos {
+                // Move must block check, king can only block check if it is capturing a piece
+                if tiles_to_block.contains(&to_pos)
+                    && !(from_pos == king_pos && to_pos != in_check_from)
+                {
                     Some((from_pos, to_pos))
                 } else {
                     None
@@ -512,5 +533,12 @@ impl Board {
                 _ => None,
             })
             .collect()
+    }
+
+    pub fn next_player(&mut self) -> PlayerEnum {
+        let next_player = (self.current_player as usize + 1).into();
+        self.current_player = next_player;
+
+        next_player
     }
 }
