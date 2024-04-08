@@ -176,3 +176,9 @@ pub struct PieceMove {
     pub from: (usize, usize),
     pub to: (usize, usize),
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct PieceMoveHistory {
+    pub from_to: PieceMove,
+    pub captured: Option<PieceEnum>,
+}

@@ -1,11 +1,13 @@
 use bevy::{
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
+    reflect::DynamicTypePath,
+    utils::petgraph::visit::NodeRef,
 };
 
 use crate::{
-    board::{board_to_pixel_coords, move_piece, move_piece_without_tests, Board},
-    piece::{PieceEnum, PieceMove, PieceMoveEvent},
+    board::{board_to_pixel_coords, move_piece_without_tests, Board},
+    piece::{Piece, PieceEnum, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT_IMG, PIECE_WIDTH_IMG},
 };
 
 #[derive(Component, Copy, Clone, Debug)]
@@ -132,6 +134,8 @@ pub fn keyboard_events(
     mut key_ev: EventReader<KeyboardInput>,
     mut board: ResMut<Board>,
     mut transform_query: Query<&mut Transform>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     use bevy::input::ButtonState;
 
@@ -142,33 +146,61 @@ pub fn keyboard_events(
                     let board_clone = board.clone();
 
                     let last_move = match board_clone.move_history.last() {
-                        Some(piece_move) => piece_move,
+                        Some(piece_move_history) => piece_move_history,
                         None => continue,
                     };
 
-                    let last_move_entity =
-                        board.pieces_and_positions[last_move.to.0][last_move.to.1].unwrap();
+                    let last_move_entity = board.pieces_and_positions[last_move.from_to.to.0]
+                        [last_move.from_to.to.1]
+                        .unwrap();
 
+                    // Move the piece back
                     let mut transform = transform_query.get_mut(last_move_entity).unwrap();
 
-                    let (x, y) = board_to_pixel_coords(last_move.from.0, last_move.from.1);
+                    let (x, y) =
+                        board_to_pixel_coords(last_move.from_to.from.0, last_move.from_to.from.1);
 
                     transform.translation = Vec3::new(x, y, 1.);
 
-                    board.move_history.pop();
+                    // TODO THIS IS A CHEESE, NEED TO FIND TEXTURE ATLAS WITHOUT REPEATING CODE
+                    let texture_atlas_layout =
+                        texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+                            Vec2::new(PIECE_WIDTH_IMG, PIECE_HEIGHT_IMG),
+                            PIECE_AMT,
+                            COLOUR_AMT,
+                            None,
+                            None,
+                        ));
+
+                    let texture = asset_server.get_handle(board.texture_file).unwrap();
 
                     move_piece_without_tests(
                         &mut commands,
                         &mut board,
                         &mut transform,
-                        last_move.to,
-                        last_move.from,
+                        last_move.from_to.to,
+                        last_move.from_to.from,
                         last_move_entity,
                     );
 
-                    board.next_player();
+                    // Spawn in any captured pieces
+                    if let Some(captured_piece) = last_move.captured {
+                        let entity = commands.spawn(Piece::new(
+                            last_move.from_to.to,
+                            captured_piece,
+                            texture.clone(),
+                            texture_atlas_layout,
+                        ));
 
-                    println!("Moved {last_move:?}");
+                        board.pieces_and_positions[last_move.from_to.to.0]
+                            [last_move.from_to.to.1] = Some(entity.id());
+
+                        board.tiles[last_move.from_to.to.0][last_move.from_to.to.1] =
+                            captured_piece;
+                    }
+
+                    board.move_history.pop();
+                    board.next_player();
                 }
                 Key::ArrowRight => {}
                 _ => {}

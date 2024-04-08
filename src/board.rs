@@ -1,8 +1,9 @@
 use crate::{
     game::{check_opponent_for_checks, CheckEvent, PlayerEnum},
     piece::{
-        piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, PieceMoveEvent, COLOUR_AMT,
-        PIECE_AMT, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH, PIECE_WIDTH_IMG,
+        piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, PieceMoveEvent,
+        PieceMoveHistory, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH,
+        PIECE_WIDTH_IMG,
     },
 };
 
@@ -20,7 +21,7 @@ pub struct Board {
     pub current_player: PlayerEnum,
     pub player_in_check: Option<PlayerEnum>,
     pub blocking_moves: [Vec<PieceMove>; COLOUR_AMT],
-    pub move_history: Vec<PieceMove>,
+    pub move_history: Vec<PieceMoveHistory>,
 }
 
 impl Board {
@@ -67,12 +68,12 @@ impl Board {
         for i in 0..board.tiles.len() {
             for j in 0..board.tiles[i].len() {
                 if PieceEnum::Empty as usize != board.tiles[i][j] as usize {
-                    let entity = commands.spawn((Piece::new(
+                    let entity = commands.spawn(Piece::new(
                         (i, j),
                         board.tiles[i][j],
                         texture.clone(),
                         texture_atlas_layout.clone(),
-                    ),));
+                    ));
 
                     board.pieces_and_positions[i][j] = Some(entity.id());
                 }
@@ -348,11 +349,14 @@ pub fn move_piece_without_tests(
     (ori_i, ori_j): (usize, usize),
     (i, j): (usize, usize),
     piece_entity: Entity,
-) {
+) -> Option<PieceEnum> {
     // Delete pieces on capture
+    let mut captured_piece = None;
     if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
         if let Some(entity) = board.pieces_and_positions[i][j] {
             commands.entity(entity).despawn();
+
+            captured_piece = Some(board.tiles[i][j]);
         }
     }
 
@@ -365,6 +369,8 @@ pub fn move_piece_without_tests(
     board.tiles[i][j] = moved_piece;
     board.pieces_and_positions[ori_i][ori_j] = None;
     board.pieces_and_positions[i][j] = Some(piece_entity);
+
+    captured_piece
 }
 
 pub fn move_piece(
@@ -431,7 +437,7 @@ pub fn move_piece(
         // board.pieces_and_positions[ori_i][ori_j] = None;
         // board.pieces_and_positions[i][j] = Some(piece_move_event.entity);
 
-        move_piece_without_tests(
+        let captured_piece = move_piece_without_tests(
             &mut commands,
             &mut board,
             &mut transform,
@@ -448,9 +454,12 @@ pub fn move_piece(
         }
 
         // Add move to move history
-        board.move_history.push(PieceMove {
-            from: (ori_i, ori_j),
-            to: (i, j),
+        board.move_history.push(PieceMoveHistory {
+            from_to: PieceMove {
+                from: (ori_i, ori_j),
+                to: (i, j),
+            },
+            captured: captured_piece,
         });
 
         // Change to the next player in the game
