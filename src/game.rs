@@ -38,37 +38,49 @@ impl From<usize> for PlayerEnum {
     }
 }
 
-#[derive(Event, Copy, Clone)]
+#[derive(Event, Copy, Clone, Debug)]
 pub struct CheckEvent {
     pub player_in_check: PlayerEnum,
     pub checking_piece: (usize, usize),
     pub at: (usize, usize),
 }
 
-pub fn check_opponent_for_checks(board: &mut ResMut<Board>) -> Vec<CheckEvent> {
-    let player_being_tested = board.see_next_player();
+pub fn check_for_checks(board: &Board) -> Vec<CheckEvent> {
+    let mut player = board.current_player;
+    let mut checks = Vec::new();
 
-    let all_moves = board.get_all_possible_moves(board.current_player);
+    for _ in 0..COLOUR_AMT {
+        let all_moves = board.get_all_possible_moves(player);
 
-    all_moves
-        .iter()
-        .filter_map(|&piece_move| {
-            if (board.tiles[piece_move.to.0][piece_move.to.1] as usize == PieceEnum::BKing as usize
-                && player_being_tested as usize == PlayerEnum::Black as usize)
-                || (board.tiles[piece_move.to.0][piece_move.to.1] as usize
-                    == PieceEnum::WKing as usize
-                    && player_being_tested as usize == PlayerEnum::White as usize)
-            {
-                Some(CheckEvent {
-                    player_in_check: player_being_tested,
-                    checking_piece: piece_move.from,
-                    at: piece_move.to,
+        let player_being_tested = board.get_next_player(player);
+
+        checks.append(
+            &mut all_moves
+                .iter()
+                .filter_map(|&piece_move| {
+                    if (board.tiles[piece_move.to.0][piece_move.to.1] as usize
+                        == PieceEnum::BKing as usize
+                        && player_being_tested as usize == PlayerEnum::Black as usize)
+                        || (board.tiles[piece_move.to.0][piece_move.to.1] as usize
+                            == PieceEnum::WKing as usize
+                            && player_being_tested as usize == PlayerEnum::White as usize)
+                    {
+                        Some(CheckEvent {
+                            player_in_check: player_being_tested,
+                            checking_piece: piece_move.from,
+                            at: piece_move.to,
+                        })
+                    } else {
+                        None
+                    }
                 })
-            } else {
-                None
-            }
-        })
-        .collect()
+                .collect::<Vec<_>>(),
+        );
+
+        player = player_being_tested;
+    }
+
+    checks
 }
 
 pub fn check_event_read(
@@ -83,8 +95,6 @@ pub fn check_event_read(
         board.player_in_check = Some(check_event.player_in_check);
 
         let blocking_moves = board.get_check_stopping_moves(check_event);
-
-        // TODO let kings walk away from check if possible
 
         let blocking_moves_to_add =
             if !board.blocking_moves[check_event.player_in_check as usize].is_empty() {

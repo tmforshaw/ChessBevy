@@ -1,5 +1,5 @@
 use crate::{
-    game::{check_opponent_for_checks, CheckEvent, PlayerEnum},
+    game::{check_for_checks, CheckEvent, PlayerEnum},
     piece::{
         piece_is_black, piece_is_white, Piece, PieceEnum, PieceMove, PieceMoveEvent,
         PieceMoveHistory, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT, PIECE_HEIGHT_IMG, PIECE_WIDTH,
@@ -420,6 +420,8 @@ pub fn move_piece(
         let (ori_i, ori_j) = piece_move_event.to_from.from;
         let (i, j) = piece_move_event.to_from.to;
 
+        let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
+
         let mut transform = transform_query.get_mut(piece_move_event.entity).unwrap();
 
         // Restrict Moves if player's king is in check
@@ -430,7 +432,6 @@ pub fn move_piece(
                     from: (ori_i, ori_j),
                     to: (i, j),
                 }) {
-                    let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
                     // Move back to original position
                     transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
 
@@ -450,10 +451,26 @@ pub fn move_piece(
                 || (piece_is_black(board.tiles[ori_i][ori_j])
                     && board.current_player as usize == PlayerEnum::White as usize))
         {
-            let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
             // Move back to original position
             transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
             return;
+        }
+
+        // Don't allow putting yourself into check
+        let mut board_clone = board.clone();
+        board_clone.tiles[i][j] = board.tiles[ori_i][ori_j];
+        board_clone.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        let possible_checks = check_for_checks(&board_clone);
+
+        if !possible_checks.is_empty() {
+            for check in possible_checks {
+                if check.player_in_check as usize == board.current_player as usize {
+                    // Move back to original position
+                    transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
+
+                    return;
+                }
+            }
         }
 
         let captured_piece = move_piece_without_tests(
@@ -465,10 +482,8 @@ pub fn move_piece(
             piece_move_event.entity,
         );
 
-        // Check to see if this move has left the opponent in check
-        let checks = check_opponent_for_checks(&mut board);
-
-        for &check in checks.iter() {
+        // Check to see if this move has a player in check
+        for &check in check_for_checks(&board).iter() {
             ev_check.send(check);
         }
 
