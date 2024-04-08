@@ -1,12 +1,10 @@
 use bevy::{
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
-    reflect::DynamicTypePath,
-    utils::petgraph::visit::NodeRef,
 };
 
 use crate::{
-    board::{board_to_pixel_coords, move_piece_without_tests, Board},
+    board::{board_to_pixel_coords, move_piece_without_tests, Board, BOARD_HEIGHT},
     piece::{Piece, PieceEnum, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT_IMG, PIECE_WIDTH_IMG},
 };
 
@@ -184,19 +182,30 @@ pub fn keyboard_events(
                     );
 
                     // Spawn in any captured pieces
-                    if let Some(captured_piece) = last_move.captured {
+                    if let Some((captured_piece, en_passant)) = last_move.captured {
+                        let spawn_pos = if en_passant {
+                            let i_dir = (last_move.from_to.to.0 as isize
+                                - last_move.from_to.from.0 as isize)
+                                .signum();
+
+                            let below_i = ((last_move.from_to.to.0 as isize - i_dir) as usize)
+                                .clamp(0, BOARD_HEIGHT);
+
+                            (below_i, last_move.from_to.to.1)
+                        } else {
+                            last_move.from_to.to
+                        };
+
                         let entity = commands.spawn(Piece::new(
-                            last_move.from_to.to,
+                            spawn_pos,
                             captured_piece,
                             texture.clone(),
                             texture_atlas_layout,
                         ));
 
-                        board.pieces_and_positions[last_move.from_to.to.0]
-                            [last_move.from_to.to.1] = Some(entity.id());
+                        board.pieces_and_positions[spawn_pos.0][spawn_pos.1] = Some(entity.id());
 
-                        board.tiles[last_move.from_to.to.0][last_move.from_to.to.1] =
-                            captured_piece;
+                        board.tiles[spawn_pos.0][spawn_pos.1] = captured_piece;
                     }
 
                     board.move_history.pop();

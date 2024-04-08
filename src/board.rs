@@ -368,14 +368,14 @@ pub fn move_piece_without_tests(
     (ori_i, ori_j): (usize, usize),
     (i, j): (usize, usize),
     piece_entity: Entity,
-) -> Option<PieceEnum> {
+) -> Option<(PieceEnum, bool)> {
     // Delete pieces on capture
     let mut captured_piece = None;
     if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
         if let Some(entity) = board.pieces_and_positions[i][j] {
             commands.entity(entity).despawn();
 
-            captured_piece = Some(board.tiles[i][j]);
+            captured_piece = Some((board.tiles[i][j], false));
         }
     } else {
         // Test for en passant
@@ -392,7 +392,7 @@ pub fn move_piece_without_tests(
             if let Some(entity) = board.pieces_and_positions[below_i][j] {
                 commands.entity(entity).despawn();
 
-                captured_piece = Some(board.tiles[below_i][j]);
+                captured_piece = Some((board.tiles[below_i][j], true));
             }
         }
     }
