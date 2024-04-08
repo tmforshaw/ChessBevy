@@ -145,6 +145,25 @@ impl Board {
                     && j_diff == 0;
 
                 // TODO En passant move
+                let en_passant = if let Some(piece_move_history) = self.move_history.last() {
+                    let piece_move = piece_move_history.from_to;
+
+                    // Opponent moved a pawn two spaces on last turn
+                    let opponent_i_diff = piece_move.from.0 as isize - piece_move.to.0 as isize;
+                    let vertical_opponent_and_self =
+                        match self.tiles[piece_move.to.0][piece_move.to.1] {
+                            PieceEnum::WPawn => opponent_i_diff == -2 && i_diff == -1,
+                            PieceEnum::BPawn => opponent_i_diff == 2 && i_diff == 1,
+                            _ => false,
+                        };
+
+                    vertical_opponent_and_self
+                        && (piece_move.to.1 as isize - ori_j as isize).abs() == 1
+                        && (piece_move.to.0 == ori_i)
+                        && (piece_move.to.1 == j)
+                } else {
+                    false
+                };
 
                 // Allow the pawn to move up or down depending on player colour
                 // This affects captures as well
@@ -163,7 +182,7 @@ impl Board {
                     && self.tiles[i][j] as usize != PieceEnum::Empty as usize
                     && i_diff.abs() == 1;
 
-                first_move || vertical_movement && (normal_movement || capture_bool)
+                first_move || vertical_movement && (normal_movement || capture_bool) || en_passant
             }
             PieceEnum::WRook | PieceEnum::BRook => self.can_move_straight(piece_move),
             PieceEnum::WBishop | PieceEnum::BBishop => self.can_move_diagonal(piece_move),
@@ -357,6 +376,24 @@ pub fn move_piece_without_tests(
             commands.entity(entity).despawn();
 
             captured_piece = Some(board.tiles[i][j]);
+        }
+    } else {
+        // Test for en passant
+        let below_i =
+            ((i as isize + (ori_i as isize - i as isize).signum()) as usize).clamp(0, BOARD_HEIGHT);
+
+        let en_passant = match board.tiles[ori_i][ori_j] {
+            PieceEnum::WPawn => board.tiles[below_i][j] as usize == PieceEnum::BPawn as usize,
+            PieceEnum::BPawn => board.tiles[below_i][j] as usize == PieceEnum::WPawn as usize,
+            _ => false,
+        };
+
+        if en_passant {
+            if let Some(entity) = board.pieces_and_positions[below_i][j] {
+                commands.entity(entity).despawn();
+
+                captured_piece = Some(board.tiles[below_i][j]);
+            }
         }
     }
 
