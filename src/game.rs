@@ -1,6 +1,12 @@
-use bevy::prelude::*;
+use bevy::{
+    input::keyboard::{Key, KeyboardInput},
+    prelude::*,
+};
 
-use crate::{board::Board, piece::PieceEnum};
+use crate::{
+    board::{board_to_pixel_coords, move_piece, move_piece_without_tests, Board},
+    piece::{PieceEnum, PieceMove, PieceMoveEvent},
+};
 
 #[derive(Component, Copy, Clone, Debug)]
 pub enum PlayerEnum {
@@ -118,5 +124,56 @@ pub fn checkmate_event_read(mut ev_checkmate: EventReader<CheckmateEvent>) {
 
         // TODO Put a timer here
         // TODO reset board and game
+    }
+}
+
+pub fn keyboard_events(
+    mut commands: Commands,
+    mut key_ev: EventReader<KeyboardInput>,
+    mut board: ResMut<Board>,
+    mut transform_query: Query<&mut Transform>,
+) {
+    use bevy::input::ButtonState;
+
+    for ev in key_ev.read() {
+        match ev.state {
+            ButtonState::Pressed => match ev.logical_key {
+                Key::ArrowLeft => {
+                    let board_clone = board.clone();
+
+                    let last_move = match board_clone.move_history.last() {
+                        Some(piece_move) => piece_move,
+                        None => continue,
+                    };
+
+                    let last_move_entity =
+                        board.pieces_and_positions[last_move.to.0][last_move.to.1].unwrap();
+
+                    let mut transform = transform_query.get_mut(last_move_entity).unwrap();
+
+                    let (x, y) = board_to_pixel_coords(last_move.from.0, last_move.from.1);
+
+                    transform.translation = Vec3::new(x, y, 1.);
+
+                    board.move_history.pop();
+
+                    move_piece_without_tests(
+                        &mut commands,
+                        &mut board,
+                        &mut transform,
+                        last_move.to,
+                        last_move.from,
+                        last_move_entity,
+                    );
+
+                    board.next_player();
+
+                    println!("Moved {last_move:?}");
+                }
+                Key::ArrowRight => {}
+                _ => {}
+            },
+            ButtonState::Released => {}
+        }
     }
 }

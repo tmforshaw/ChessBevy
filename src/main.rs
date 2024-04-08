@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use bevy_mod_picking::prelude::*;
 use board::{move_piece, Board};
-use game::{check_event_read, checkmate_event_read, CheckEvent, CheckmateEvent};
+use game::{check_event_read, checkmate_event_read, keyboard_events, CheckEvent, CheckmateEvent};
 use piece::PieceMoveEvent;
 
 pub mod board;
@@ -31,7 +31,12 @@ fn main() {
         .add_systems(Startup, (setup, Board::setup))
         .add_systems(
             FixedUpdate,
-            (move_piece, checkmate_event_read, check_event_read),
+            (
+                move_piece,
+                checkmate_event_read,
+                check_event_read,
+                keyboard_events,
+            ),
         )
         // .add_systems(FixedUpdate, event_readers)
         .add_event::<PieceMoveEvent>()

@@ -171,7 +171,7 @@ pub struct PieceMoveEvent {
     pub entity: Entity,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct PieceMove {
     pub from: (usize, usize),
     pub to: (usize, usize),

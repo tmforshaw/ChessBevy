@@ -12,60 +12,6 @@ pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
 pub const BOARD_SPACING: (f32, f32) = (4., 4.);
 
-pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
-    (
-        (j as f32 - BOARD_WIDTH as f32 / 2. + 0.5) * (PIECE_WIDTH + BOARD_SPACING.0),
-        (i as f32 - BOARD_HEIGHT as f32 / 2. + 0.5) * (PIECE_HEIGHT + BOARD_SPACING.1),
-    )
-}
-
-pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
-    (
-        (((y / (PIECE_HEIGHT + BOARD_SPACING.1)) - 0.5 + BOARD_HEIGHT as f32 / 2.) as usize)
-            .clamp(0, BOARD_HEIGHT - 1),
-        (((x / (PIECE_WIDTH + BOARD_SPACING.0)) - 0.5 + BOARD_WIDTH as f32 / 2.) as usize)
-            .clamp(0, BOARD_WIDTH - 1),
-    )
-}
-
-impl Default for Board {
-    fn default() -> Self {
-        let mut tiles = [[PieceEnum::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
-
-        tiles[0][0] = PieceEnum::WRook;
-        tiles[0][1] = PieceEnum::WKnight;
-        tiles[0][2] = PieceEnum::WBishop;
-        tiles[0][3] = PieceEnum::WQueen;
-        tiles[0][4] = PieceEnum::WKing;
-        tiles[0][5] = PieceEnum::WBishop;
-        tiles[0][6] = PieceEnum::WKnight;
-        tiles[0][7] = PieceEnum::WRook;
-
-        for i in 0..BOARD_WIDTH {
-            tiles[1][i] = PieceEnum::WPawn;
-            tiles[BOARD_HEIGHT - 2][i] = PieceEnum::BPawn;
-        }
-
-        tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
-        tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
-        tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
-        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
-        tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
-        tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
-        tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
-        tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
-
-        Board {
-            tiles,
-            texture_file: "ChessPiecesArray.png",
-            pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
-            current_player: PlayerEnum::White,
-            player_in_check: None,
-            blocking_moves: std::array::from_fn(|_| Vec::new()),
-        }
-    }
-}
-
 #[derive(Resource, Clone)]
 pub struct Board {
     pub tiles: [[PieceEnum; BOARD_WIDTH]; BOARD_HEIGHT],
@@ -74,6 +20,7 @@ pub struct Board {
     pub current_player: PlayerEnum,
     pub player_in_check: Option<PlayerEnum>,
     pub blocking_moves: [Vec<PieceMove>; COLOUR_AMT],
+    pub move_history: Vec<PieceMove>,
 }
 
 impl Board {
@@ -394,6 +341,32 @@ impl Board {
     }
 }
 
+pub fn move_piece_without_tests(
+    commands: &mut Commands,
+    board: &mut ResMut<Board>,
+    transform: &mut Transform,
+    (ori_i, ori_j): (usize, usize),
+    (i, j): (usize, usize),
+    piece_entity: Entity,
+) {
+    // Delete pieces on capture
+    if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
+        if let Some(entity) = board.pieces_and_positions[i][j] {
+            commands.entity(entity).despawn();
+        }
+    }
+
+    let (x, y) = board_to_pixel_coords(i, j);
+    transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
+
+    // Update board.tiles to reflect the new board position
+    let moved_piece = board.tiles[ori_i][ori_j];
+    board.tiles[ori_i][ori_j] = PieceEnum::Empty;
+    board.tiles[i][j] = moved_piece;
+    board.pieces_and_positions[ori_i][ori_j] = None;
+    board.pieces_and_positions[i][j] = Some(piece_entity);
+}
+
 pub fn move_piece(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
@@ -441,22 +414,31 @@ pub fn move_piece(
             return;
         }
 
-        // Delete pieces on capture
-        if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
-            if let Some(entity) = board.pieces_and_positions[i][j] {
-                commands.entity(entity).despawn();
-            }
-        }
+        // // Delete pieces on capture
+        // if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
+        //     if let Some(entity) = board.pieces_and_positions[i][j] {
+        //         commands.entity(entity).despawn();
+        //     }
+        // }
 
-        let (x, y) = board_to_pixel_coords(i, j);
-        transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
+        // let (x, y) = board_to_pixel_coords(i, j);
+        // transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
 
-        // Update board.tiles to reflect the new board position
-        let moved_piece = board.tiles[ori_i][ori_j];
-        board.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        board.tiles[i][j] = moved_piece;
-        board.pieces_and_positions[ori_i][ori_j] = None;
-        board.pieces_and_positions[i][j] = Some(piece_move_event.entity);
+        // // Update board.tiles to reflect the new board position
+        // let moved_piece = board.tiles[ori_i][ori_j];
+        // board.tiles[ori_i][ori_j] = PieceEnum::Empty;
+        // board.tiles[i][j] = moved_piece;
+        // board.pieces_and_positions[ori_i][ori_j] = None;
+        // board.pieces_and_positions[i][j] = Some(piece_move_event.entity);
+
+        move_piece_without_tests(
+            &mut commands,
+            &mut board,
+            &mut transform,
+            (ori_i, ori_j),
+            (i, j),
+            piece_move_event.entity,
+        );
 
         // Check to see if this move has left the opponent in check
         let checks = check_opponent_for_checks(&mut board);
@@ -465,7 +447,68 @@ pub fn move_piece(
             ev_check.send(check);
         }
 
+        // Add move to move history
+        board.move_history.push(PieceMove {
+            from: (ori_i, ori_j),
+            to: (i, j),
+        });
+
         // Change to the next player in the game
         board.next_player();
+    }
+}
+
+pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
+    (
+        (j as f32 - BOARD_WIDTH as f32 / 2. + 0.5) * (PIECE_WIDTH + BOARD_SPACING.0),
+        (i as f32 - BOARD_HEIGHT as f32 / 2. + 0.5) * (PIECE_HEIGHT + BOARD_SPACING.1),
+    )
+}
+
+pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
+    (
+        (((y / (PIECE_HEIGHT + BOARD_SPACING.1)) - 0.5 + BOARD_HEIGHT as f32 / 2.) as usize)
+            .clamp(0, BOARD_HEIGHT - 1),
+        (((x / (PIECE_WIDTH + BOARD_SPACING.0)) - 0.5 + BOARD_WIDTH as f32 / 2.) as usize)
+            .clamp(0, BOARD_WIDTH - 1),
+    )
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        let mut tiles = [[PieceEnum::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
+
+        tiles[0][0] = PieceEnum::WRook;
+        tiles[0][1] = PieceEnum::WKnight;
+        tiles[0][2] = PieceEnum::WBishop;
+        tiles[0][3] = PieceEnum::WQueen;
+        tiles[0][4] = PieceEnum::WKing;
+        tiles[0][5] = PieceEnum::WBishop;
+        tiles[0][6] = PieceEnum::WKnight;
+        tiles[0][7] = PieceEnum::WRook;
+
+        for i in 0..BOARD_WIDTH {
+            tiles[1][i] = PieceEnum::WPawn;
+            tiles[BOARD_HEIGHT - 2][i] = PieceEnum::BPawn;
+        }
+
+        tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
+        tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
+        tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
+        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
+        tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
+        tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
+        tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
+        tiles[BOARD_HEIGHT - 1][7] = PieceEnum::BRook;
+
+        Board {
+            tiles,
+            texture_file: "ChessPiecesArray.png",
+            pieces_and_positions: [[None; BOARD_WIDTH]; BOARD_HEIGHT],
+            current_player: PlayerEnum::White,
+            player_in_check: None,
+            blocking_moves: std::array::from_fn(|_| Vec::new()),
+            move_history: Vec::new(),
+        }
     }
 }
