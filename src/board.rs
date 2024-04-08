@@ -144,7 +144,6 @@ impl Board {
                         == PieceEnum::Empty as usize
                     && j_diff == 0;
 
-                // TODO En passant move
                 let en_passant = if let Some(piece_move_history) = self.move_history.last() {
                     let piece_move = piece_move_history.from_to;
 
@@ -456,23 +455,6 @@ pub fn move_piece(
             transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
             return;
         }
-
-        // // Delete pieces on capture
-        // if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
-        //     if let Some(entity) = board.pieces_and_positions[i][j] {
-        //         commands.entity(entity).despawn();
-        //     }
-        // }
-
-        // let (x, y) = board_to_pixel_coords(i, j);
-        // transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
-
-        // // Update board.tiles to reflect the new board position
-        // let moved_piece = board.tiles[ori_i][ori_j];
-        // board.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        // board.tiles[i][j] = moved_piece;
-        // board.pieces_and_positions[ori_i][ori_j] = None;
-        // board.pieces_and_positions[i][j] = Some(piece_move_event.entity);
 
         let captured_piece = move_piece_without_tests(
             &mut commands,
