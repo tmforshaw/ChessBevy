@@ -125,7 +125,7 @@ impl Board {
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
-        // TODO Add castling and piece pinning
+        // TODO Add castling
 
         match self.tiles[ori_i][ori_j] {
             PieceEnum::WPawn | PieceEnum::BPawn => {
@@ -333,10 +333,28 @@ impl Board {
                 // Move must block check, king can only block check if it is capturing a piece
                 if (tiles_under_attack.contains(&piece_move.to)
                     && !(piece_move.from == check.at && piece_move.to != check.checking_piece))
-                    // King can move away from tiles which are underattack
-                    || (piece_move.from == check.at && !tiles_under_attack.contains(&piece_move.to))
+                // King can move away from tiles which are underattack
+                ||(piece_move.from == check.at
+                    && !tiles_under_attack.contains(&piece_move.to))
                 {
-                    Some(piece_move)
+                    // Don't allow putting yourself into check
+                    let mut board_clone = self.clone();
+                    board_clone.tiles[piece_move.to.0][piece_move.to.1] =
+                        self.tiles[piece_move.from.0][piece_move.from.1];
+                    board_clone.tiles[piece_move.from.0][piece_move.from.1] = PieceEnum::Empty;
+                    let possible_checks = check_for_checks(&board_clone);
+
+                    let mut return_val = Some(piece_move);
+                    if !possible_checks.is_empty() {
+                        for check in possible_checks {
+                            if check.player_in_check as usize == self.current_player as usize {
+                                return_val = None;
+                                break;
+                            }
+                        }
+                    }
+
+                    return_val
                 } else {
                     None
                 }
@@ -381,13 +399,11 @@ pub fn move_piece_without_tests(
         let below_i =
             ((i as isize + (ori_i as isize - i as isize).signum()) as usize).clamp(0, BOARD_HEIGHT);
 
-        let en_passant = match board.tiles[ori_i][ori_j] {
-            PieceEnum::WPawn => board.tiles[below_i][j] as usize == PieceEnum::BPawn as usize,
-            PieceEnum::BPawn => board.tiles[below_i][j] as usize == PieceEnum::WPawn as usize,
-            _ => false,
-        };
-
-        if en_passant {
+        // If en passant has occurred, delete the pawn underneath
+        if matches!(
+            (board.tiles[ori_i][ori_j], board.tiles[below_i][j]),
+            (PieceEnum::WPawn, PieceEnum::BPawn) | (PieceEnum::BPawn, PieceEnum::WPawn)
+        ) {
             if let Some(entity) = board.pieces_and_positions[below_i][j] {
                 commands.entity(entity).despawn();
 
@@ -456,23 +472,7 @@ pub fn move_piece(
             return;
         }
 
-        // Don't allow putting yourself into check
-        let mut board_clone = board.clone();
-        board_clone.tiles[i][j] = board.tiles[ori_i][ori_j];
-        board_clone.tiles[ori_i][ori_j] = PieceEnum::Empty;
-        let possible_checks = check_for_checks(&board_clone);
-
-        if !possible_checks.is_empty() {
-            for check in possible_checks {
-                if check.player_in_check as usize == board.current_player as usize {
-                    // Move back to original position
-                    transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
-
-                    return;
-                }
-            }
-        }
-
+        // Move the piece and return if there was a captured piece
         let captured_piece = move_piece_without_tests(
             &mut commands,
             &mut board,
