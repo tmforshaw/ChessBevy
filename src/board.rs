@@ -8,6 +8,7 @@ use crate::{
 };
 
 use bevy::prelude::*;
+use pleco::tools::Searcher;
 
 pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
@@ -86,21 +87,7 @@ impl Board {
 
         for i in (0..self.tiles.len()).rev() {
             for j in 0..self.tiles[i].len() {
-                message.push(match self.tiles[i][j] {
-                    PieceEnum::Empty => '*',
-                    PieceEnum::BQueen => 'q',
-                    PieceEnum::BKing => 'k',
-                    PieceEnum::BKnight => 'n',
-                    PieceEnum::BBishop => 'b',
-                    PieceEnum::BRook => 'r',
-                    PieceEnum::BPawn => 'p',
-                    PieceEnum::WQueen => 'Q',
-                    PieceEnum::WKing => 'K',
-                    PieceEnum::WKnight => 'N',
-                    PieceEnum::WBishop => 'B',
-                    PieceEnum::WRook => 'R',
-                    PieceEnum::WPawn => 'P',
-                });
+                message.push(piece_to_algebraic(self.tiles[i][j]));
                 message.push(' ');
             }
 
@@ -207,13 +194,13 @@ impl Board {
                     _ => unreachable!(),
                 };
 
-                let left_rook_has_moved = match self.tiles[ori_i][ori_j] {
+                let queenside_rook_has_moved = match self.tiles[ori_i][ori_j] {
                     PieceEnum::WKing => move_from_history.contains(&(0, 0)),
                     PieceEnum::BKing => move_from_history.contains(&(BOARD_HEIGHT - 1, 0)),
                     _ => unreachable!(),
                 };
 
-                let right_rook_has_moved = match self.tiles[ori_i][ori_j] {
+                let kingside_rook_has_moved = match self.tiles[ori_i][ori_j] {
                     PieceEnum::WKing => move_from_history.contains(&(0, BOARD_WIDTH - 1)),
                     PieceEnum::BKing => {
                         move_from_history.contains(&(BOARD_HEIGHT - 1, BOARD_WIDTH - 1))
@@ -223,8 +210,8 @@ impl Board {
 
                 let castling = !king_has_moved
                     && i_diff == 0
-                    && ((j_diff == 2 && !right_rook_has_moved)
-                        || (j_diff == -2 && !left_rook_has_moved))
+                    && ((j_diff == 2 && !kingside_rook_has_moved)
+                        || (j_diff == -2 && !queenside_rook_has_moved))
                     && !self.is_path_blocked(piece_move);
 
                 normal_movement || castling
@@ -409,6 +396,102 @@ impl Board {
     pub fn get_next_player(&self, player: PlayerEnum) -> PlayerEnum {
         (player as usize + 1).into()
     }
+
+    pub fn fen(&self) -> String {
+        let mut fen = String::new();
+
+        for i in (0..BOARD_HEIGHT).rev() {
+            let mut empty_counter = 0;
+
+            for j in 0..BOARD_WIDTH {
+                match self.tiles[i][j] {
+                    PieceEnum::Empty => {
+                        empty_counter += 1;
+                    }
+                    _ => {
+                        if empty_counter > 0 {
+                            fen.push_str(format!("{empty_counter}").as_str());
+                            empty_counter = 0;
+                        }
+                        fen.push(piece_to_algebraic(self.tiles[i][j]));
+                    }
+                }
+            }
+            if empty_counter > 0 {
+                fen.push_str(format!("{empty_counter}").as_str());
+            }
+            if i > 0 {
+                fen.push('/');
+            }
+        }
+
+        fen.push_str(
+            format!(
+                " {} ",
+                if self.current_player as usize == PlayerEnum::White as usize {
+                    "w"
+                } else {
+                    "b"
+                }
+            )
+            .as_str(),
+        );
+
+        // TODO Remove repeated code
+
+        let move_from_history = self
+            .move_history
+            .iter()
+            .map(|&piece_move_history| piece_move_history.from_to.from)
+            .collect::<Vec<_>>();
+
+        let mut castling_string = String::new();
+        // King has not moved
+        if !move_from_history.contains(&(0, 4)) {
+            if !move_from_history.contains(&(0, 0)) {
+                castling_string.push('K');
+            }
+
+            if !move_from_history.contains(&(0, BOARD_WIDTH - 1)) {
+                castling_string.push('Q');
+            }
+        }
+
+        // King has not moved
+        if !move_from_history.contains(&(BOARD_HEIGHT - 1, 4)) {
+            if !move_from_history.contains(&(BOARD_HEIGHT - 1, 0)) {
+                castling_string.push('k');
+            }
+            if !move_from_history.contains(&(BOARD_HEIGHT - 1, BOARD_WIDTH - 1)) {
+                castling_string.push('q');
+            }
+        }
+
+        if castling_string.is_empty() {
+            fen.push('-');
+        } else {
+            fen.push_str(castling_string.as_str());
+        }
+
+        // En passant
+        let mut en_passant_str = String::from("-");
+        if let Some(last_move) = self.move_history.last() {
+            // There was an en passant
+            if let Some((_, en_passant)) = last_move.captured {
+                if en_passant {
+                    en_passant_str = piece_move_to_algebraic(last_move.from_to);
+                }
+            }
+        }
+
+        fen.push_str(format!(" {}", en_passant_str.as_str()).as_str());
+
+        // MOve stuff
+
+        fen.push_str(" 0 1");
+
+        fen
+    }
 }
 
 pub fn move_piece_without_tests(
@@ -568,6 +651,43 @@ pub fn move_piece(
 
         // Change to the next player in the game
         board.next_player();
+
+        // println!("{}", board.fen());
+
+        let pleco_board = pleco::Board::from_fen(board.fen().as_str()).unwrap();
+        let best_move = pleco::bots::IterativeSearcher::best_move(pleco_board.parallel_clone(), 5);
+
+        let best_move_piece_move = algebraic_to_piece_move(best_move.to_string().as_str());
+
+        let best_move_entity = board.pieces_and_positions[best_move_piece_move.from.0]
+            [best_move_piece_move.from.1]
+            .unwrap();
+
+        // Move the piece and return if there was a captured piece
+        let captured_piece = move_piece_without_tests(
+            &mut commands,
+            &mut board,
+            &mut transform_query,
+            best_move_piece_move.from,
+            best_move_piece_move.to,
+            best_move_entity,
+        );
+
+        // Check to see if this move has a player in check
+        for &check in check_for_checks(&board).iter() {
+            ev_check.send(check);
+        }
+
+        // Add move to move history
+        board.move_history.push(PieceMoveHistory {
+            from_to: PieceMove {
+                from: best_move_piece_move.from,
+                to: best_move_piece_move.to,
+            },
+            captured: captured_piece,
+        });
+
+        board.next_player();
     }
 }
 
@@ -623,5 +743,48 @@ impl Default for Board {
             blocking_moves: std::array::from_fn(|_| Vec::new()),
             move_history: Vec::new(),
         }
+    }
+}
+
+pub fn piece_to_algebraic(piece: PieceEnum) -> char {
+    match piece {
+        PieceEnum::Empty => '-',
+        PieceEnum::BQueen => 'q',
+        PieceEnum::BKing => 'k',
+        PieceEnum::BKnight => 'n',
+        PieceEnum::BBishop => 'b',
+        PieceEnum::BRook => 'r',
+        PieceEnum::BPawn => 'p',
+        PieceEnum::WQueen => 'Q',
+        PieceEnum::WKing => 'K',
+        PieceEnum::WKnight => 'N',
+        PieceEnum::WBishop => 'B',
+        PieceEnum::WRook => 'R',
+        PieceEnum::WPawn => 'P',
+    }
+}
+
+pub fn piece_move_to_algebraic(piece_move: PieceMove) -> String {
+    format!(
+        "{}{}{}{}",
+        (piece_move.from.0 as u8 + b'a') as char,
+        piece_move.from.1,
+        (piece_move.to.0 as u8 + b'a') as char,
+        piece_move.to.1
+    )
+}
+
+pub fn algebraic_to_piece_move(algebraic: &str) -> PieceMove {
+    let chars = algebraic.chars().collect::<Vec<_>>();
+
+    PieceMove {
+        from: (
+            (chars[1] as u8 - b'0' - 1) as usize,
+            (chars[0] as u8 - b'a') as usize,
+        ),
+        to: (
+            (chars[3] as u8 - b'0' - 1) as usize,
+            (chars[2] as u8 - b'a') as usize,
+        ),
     }
 }
