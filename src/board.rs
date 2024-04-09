@@ -125,8 +125,6 @@ impl Board {
         let i_diff = i as isize - ori_i as isize;
         let j_diff = j as isize - ori_j as isize;
 
-        // TODO Add castling
-
         match self.tiles[ori_i][ori_j] {
             PieceEnum::WPawn | PieceEnum::BPawn => {
                 // Allow double movement on pawn's first move
@@ -421,8 +419,6 @@ pub fn move_piece_without_tests(
     (i, j): (usize, usize),
     piece_entity: Entity,
 ) -> Option<(PieceEnum, bool)> {
-    let (x, y) = board_to_pixel_coords(i, j);
-
     // Delete pieces on capture
     let mut captured_piece = None;
     if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
@@ -456,23 +452,36 @@ pub fn move_piece_without_tests(
                 // King has castled
                 if j_diff.abs() == 2 {
                     // Rooks will always be on the edge of the board so this should pick the rook depending on king's direction
-                    let rook_j = if j_diff < 0 { 0 } else { BOARD_WIDTH - 1 };
-
-                    let new_rook_j =
+                    let mut rook_j = if j_diff < 0 { 0 } else { BOARD_WIDTH - 1 };
+                    let mut new_rook_j =
                         ((j as isize - j_diff.signum()) as usize).clamp(0, BOARD_WIDTH - 1);
 
-                    let rook_entity = board.pieces_and_positions[ori_i][rook_j].unwrap();
+                    // Check if this move is a reverse castle (For use with the history functions)
+                    if j == 4 {
+                        new_rook_j = if j_diff > 0 { 0 } else { BOARD_WIDTH - 1 };
+                        rook_j =
+                            ((ori_j as isize + j_diff.signum()) as usize).clamp(0, BOARD_WIDTH - 1);
+                    }
 
+                    let rook_entity = board.pieces_and_positions[ori_i][rook_j].unwrap();
                     let mut rook_transform = transform_query.get_mut(rook_entity).unwrap();
 
                     let (x, y) = board_to_pixel_coords(i, new_rook_j);
                     rook_transform.translation = Vec3::new(x, y, 1.);
+
+                    // Update board.tiles to reflect the new rook position
+                    let moved_piece = board.tiles[ori_i][rook_j];
+                    board.tiles[ori_i][rook_j] = PieceEnum::Empty;
+                    board.tiles[i][new_rook_j] = moved_piece;
+                    board.pieces_and_positions[ori_i][rook_j] = None;
+                    board.pieces_and_positions[i][new_rook_j] = Some(rook_entity);
                 }
             }
             _ => {}
         }
     }
 
+    let (x, y) = board_to_pixel_coords(i, j);
     let mut transform = transform_query.get_mut(piece_entity).unwrap();
     transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
 
@@ -583,9 +592,9 @@ impl Default for Board {
         let mut tiles = [[PieceEnum::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
 
         tiles[0][0] = PieceEnum::WRook;
-        // tiles[0][1] = PieceEnum::WKnight;
-        // tiles[0][2] = PieceEnum::WBishop;
-        // tiles[0][3] = PieceEnum::WQueen;
+        tiles[0][1] = PieceEnum::WKnight;
+        tiles[0][2] = PieceEnum::WBishop;
+        tiles[0][3] = PieceEnum::WQueen;
         tiles[0][4] = PieceEnum::WKing;
         tiles[0][5] = PieceEnum::WBishop;
         tiles[0][6] = PieceEnum::WKnight;
@@ -597,9 +606,9 @@ impl Default for Board {
         }
 
         tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
-        // tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
-        // tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
-        // tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
+        tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
+        tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
+        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
         tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
         tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;

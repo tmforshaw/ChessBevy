@@ -4,7 +4,7 @@ use bevy::{
 };
 
 use crate::{
-    board::{board_to_pixel_coords, move_piece_without_tests, Board, BOARD_HEIGHT},
+    board::{move_piece_without_tests, Board, BOARD_HEIGHT},
     piece::{Piece, PieceEnum, COLOUR_AMT, PIECE_AMT, PIECE_HEIGHT_IMG, PIECE_WIDTH_IMG},
 };
 
@@ -161,6 +161,51 @@ pub fn keyboard_events(
                         [last_move.from_to.to.1]
                         .unwrap();
 
+                    // match board.tiles[last_move.from_to.to.0][last_move.from_to.to.1] {
+                    //     PieceEnum::WKing | PieceEnum::BKing => {
+                    //         let j_diff =
+                    //             last_move.from_to.to.1 as isize - last_move.from_to.from.1 as isize;
+
+                    //         // King has castled
+                    //         if j_diff.abs() == 2 {
+                    //             let rook_piece_move = PieceMove {
+                    //                 from: (
+                    //                     last_move.from_to.to.0,
+                    //                     ((last_move.from_to.to.1 as isize - j_diff.signum())
+                    //                         as usize)
+                    //                         .clamp(0, BOARD_WIDTH - 1),
+                    //                 ),
+                    //                 to: (
+                    //                     last_move.from_to.to.0,
+                    //                     if j_diff < 0 { 0 } else { BOARD_WIDTH - 1 },
+                    //                 ),
+                    //             };
+
+                    //             println!("{rook_piece_move:?}");
+
+                    //             println!("{}", board.tiles_string());
+
+                    //             let rook_entity = board.pieces_and_positions
+                    //                 [rook_piece_move.from.0][rook_piece_move.from.1]
+                    //                 .unwrap();
+
+                    //             move_piece_without_tests(
+                    //                 &mut commands,
+                    //                 &mut board,
+                    //                 &mut transform_query,
+                    //                 rook_piece_move.from,
+                    //                 rook_piece_move.to,
+                    //                 rook_entity,
+                    //             );
+
+                    //             println!("{}", board.tiles_string());
+                    //         }
+                    //     }
+                    //     _ => {
+                    //         todo!()
+                    //     }
+                    // }
+
                     // TODO THIS IS A CHEESE, NEED TO FIND TEXTURE ATLAS WITHOUT REPEATING CODE
                     let texture_atlas_layout =
                         texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
@@ -176,7 +221,6 @@ pub fn keyboard_events(
                     move_piece_without_tests(
                         &mut commands,
                         &mut board,
-                        // &mut transform,
                         &mut transform_query,
                         last_move.from_to.to,
                         last_move.from_to.from,
