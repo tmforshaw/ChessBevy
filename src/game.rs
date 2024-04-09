@@ -132,8 +132,7 @@ pub fn checkmate_event_read(mut ev_checkmate: EventReader<CheckmateEvent>) {
             event.winning_player
         );
 
-        // TODO Put a timer here
-        // TODO reset board and game
+        // TODO Put a timer here, reset board and game
     }
 }
 
@@ -162,14 +161,6 @@ pub fn keyboard_events(
                         [last_move.from_to.to.1]
                         .unwrap();
 
-                    // Move the piece back
-                    let mut transform = transform_query.get_mut(last_move_entity).unwrap();
-
-                    let (x, y) =
-                        board_to_pixel_coords(last_move.from_to.from.0, last_move.from_to.from.1);
-
-                    transform.translation = Vec3::new(x, y, 1.);
-
                     // TODO THIS IS A CHEESE, NEED TO FIND TEXTURE ATLAS WITHOUT REPEATING CODE
                     let texture_atlas_layout =
                         texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
@@ -185,7 +176,8 @@ pub fn keyboard_events(
                     move_piece_without_tests(
                         &mut commands,
                         &mut board,
-                        &mut transform,
+                        // &mut transform,
+                        &mut transform_query,
                         last_move.from_to.to,
                         last_move.from_to.from,
                         last_move_entity,

@@ -194,7 +194,42 @@ impl Board {
             }
             PieceEnum::WKing | PieceEnum::BKing => {
                 // Move 1 in either (or both) directions
-                i_diff.abs() <= 1 && j_diff.abs() <= 1 && !self.is_path_blocked(piece_move)
+                let normal_movement =
+                    i_diff.abs() <= 1 && j_diff.abs() <= 1 && !self.is_path_blocked(piece_move);
+
+                let move_from_history = self
+                    .move_history
+                    .iter()
+                    .map(|&piece_move_history| piece_move_history.from_to.from)
+                    .collect::<Vec<_>>();
+
+                let king_has_moved = match self.tiles[ori_i][ori_j] {
+                    PieceEnum::WKing => move_from_history.contains(&(0, 4)),
+                    PieceEnum::BKing => move_from_history.contains(&(BOARD_HEIGHT - 1, 4)),
+                    _ => unreachable!(),
+                };
+
+                let left_rook_has_moved = match self.tiles[ori_i][ori_j] {
+                    PieceEnum::WKing => move_from_history.contains(&(0, 0)),
+                    PieceEnum::BKing => move_from_history.contains(&(BOARD_HEIGHT - 1, 0)),
+                    _ => unreachable!(),
+                };
+
+                let right_rook_has_moved = match self.tiles[ori_i][ori_j] {
+                    PieceEnum::WKing => move_from_history.contains(&(0, BOARD_WIDTH - 1)),
+                    PieceEnum::BKing => {
+                        move_from_history.contains(&(BOARD_HEIGHT - 1, BOARD_WIDTH - 1))
+                    }
+                    _ => unreachable!(),
+                };
+
+                let castling = !king_has_moved
+                    && i_diff == 0
+                    && ((j_diff == 2 && !right_rook_has_moved)
+                        || (j_diff == -2 && !left_rook_has_moved))
+                    && !self.is_path_blocked(piece_move);
+
+                normal_movement || castling
             }
             // Should never reach this point
             PieceEnum::Empty => {
@@ -381,11 +416,13 @@ impl Board {
 pub fn move_piece_without_tests(
     commands: &mut Commands,
     board: &mut ResMut<Board>,
-    transform: &mut Transform,
+    transform_query: &mut Query<&mut Transform>,
     (ori_i, ori_j): (usize, usize),
     (i, j): (usize, usize),
     piece_entity: Entity,
 ) -> Option<(PieceEnum, bool)> {
+    let (x, y) = board_to_pixel_coords(i, j);
+
     // Delete pieces on capture
     let mut captured_piece = None;
     if board.tiles[i][j] as usize != PieceEnum::Empty as usize {
@@ -410,9 +447,33 @@ pub fn move_piece_without_tests(
                 captured_piece = Some((board.tiles[below_i][j], true));
             }
         }
+
+        // Test for castling
+        match board.tiles[ori_i][ori_j] {
+            PieceEnum::WKing | PieceEnum::BKing => {
+                let j_diff = j as isize - ori_j as isize;
+
+                // King has castled
+                if j_diff.abs() == 2 {
+                    // Rooks will always be on the edge of the board so this should pick the rook depending on king's direction
+                    let rook_j = if j_diff < 0 { 0 } else { BOARD_WIDTH - 1 };
+
+                    let new_rook_j =
+                        ((j as isize - j_diff.signum()) as usize).clamp(0, BOARD_WIDTH - 1);
+
+                    let rook_entity = board.pieces_and_positions[ori_i][rook_j].unwrap();
+
+                    let mut rook_transform = transform_query.get_mut(rook_entity).unwrap();
+
+                    let (x, y) = board_to_pixel_coords(i, new_rook_j);
+                    rook_transform.translation = Vec3::new(x, y, 1.);
+                }
+            }
+            _ => {}
+        }
     }
 
-    let (x, y) = board_to_pixel_coords(i, j);
+    let mut transform = transform_query.get_mut(piece_entity).unwrap();
     transform.translation = Vec3::new(x, y, 1.); // z = 1 places the piece above the board, but below the held piece
 
     // Update board.tiles to reflect the new board position
@@ -438,8 +499,6 @@ pub fn move_piece(
 
         let (ori_x, ori_y) = board_to_pixel_coords(ori_i, ori_j);
 
-        let mut transform = transform_query.get_mut(piece_move_event.entity).unwrap();
-
         // Restrict Moves if player's king is in check
         if let Some(player_in_check) = board.player_in_check {
             if player_in_check as usize == board.current_player as usize {
@@ -449,6 +508,7 @@ pub fn move_piece(
                     to: (i, j),
                 }) {
                     // Move back to original position
+                    let mut transform = transform_query.get_mut(piece_move_event.entity).unwrap();
                     transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
 
                     return;
@@ -468,6 +528,7 @@ pub fn move_piece(
                     && board.current_player as usize == PlayerEnum::White as usize))
         {
             // Move back to original position
+            let mut transform = transform_query.get_mut(piece_move_event.entity).unwrap();
             transform.translation = Vec3::new(ori_x, ori_y, 1.); // z = 1 places the piece above the board, but below the held piece
             return;
         }
@@ -476,7 +537,7 @@ pub fn move_piece(
         let captured_piece = move_piece_without_tests(
             &mut commands,
             &mut board,
-            &mut transform,
+            &mut transform_query,
             (ori_i, ori_j),
             (i, j),
             piece_move_event.entity,
@@ -522,9 +583,9 @@ impl Default for Board {
         let mut tiles = [[PieceEnum::Empty; BOARD_WIDTH]; BOARD_HEIGHT];
 
         tiles[0][0] = PieceEnum::WRook;
-        tiles[0][1] = PieceEnum::WKnight;
-        tiles[0][2] = PieceEnum::WBishop;
-        tiles[0][3] = PieceEnum::WQueen;
+        // tiles[0][1] = PieceEnum::WKnight;
+        // tiles[0][2] = PieceEnum::WBishop;
+        // tiles[0][3] = PieceEnum::WQueen;
         tiles[0][4] = PieceEnum::WKing;
         tiles[0][5] = PieceEnum::WBishop;
         tiles[0][6] = PieceEnum::WKnight;
@@ -536,9 +597,9 @@ impl Default for Board {
         }
 
         tiles[BOARD_HEIGHT - 1][0] = PieceEnum::BRook;
-        tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
-        tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
-        tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
+        // tiles[BOARD_HEIGHT - 1][1] = PieceEnum::BKnight;
+        // tiles[BOARD_HEIGHT - 1][2] = PieceEnum::BBishop;
+        // tiles[BOARD_HEIGHT - 1][3] = PieceEnum::BQueen;
         tiles[BOARD_HEIGHT - 1][4] = PieceEnum::BKing;
         tiles[BOARD_HEIGHT - 1][5] = PieceEnum::BBishop;
         tiles[BOARD_HEIGHT - 1][6] = PieceEnum::BKnight;
