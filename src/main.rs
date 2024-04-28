@@ -38,7 +38,6 @@ fn main() {
                 keyboard_events,
             ),
         )
-        // .add_systems(FixedUpdate, event_readers)
         .add_event::<PieceMoveEvent>()
         .add_event::<CheckmateEvent>()
         .add_event::<CheckEvent>()
