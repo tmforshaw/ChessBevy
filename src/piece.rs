@@ -41,7 +41,7 @@ pub enum Piece {
 
 impl From<Piece> for usize {
     fn from(value: Piece) -> usize {
-        value as usize - 1 - 2 * (value.is_black() as usize)
+        value as usize - 1 - 2 * (value.is_white() as usize)
     }
 }
 
@@ -82,11 +82,11 @@ pub const PIECES: &[Piece] = &[
 
 impl Piece {
     pub fn is_white(self) -> bool {
-        ((self as u8 >> 3) & 1) == 0 && self != Piece::None
+        ((self as u8 >> 3) & 1) == 1 && self != Piece::None
     }
 
     pub fn is_black(self) -> bool {
-        ((self as u8 >> 3) & 1) == 1 && self != Piece::None
+        ((self as u8 >> 3) & 1) == 0 && self != Piece::None
     }
 
     pub fn is_player(self, player: Player) -> bool {
