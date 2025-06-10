@@ -1,12 +1,14 @@
+use std::fmt;
+
 use bevy::prelude::*;
 
 use crate::{
     bitboard::BitBoards,
     display::BOARD_SIZE,
-    piece::{Piece, COLOUR_AMT, PIECE_AMT},
+    piece::{Piece, PieceMove, COLOUR_AMT, PIECES},
 };
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, Debug)]
 pub enum Player {
     #[default]
     White,
@@ -26,7 +28,7 @@ impl TilePos {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct Board {
     pub positions: BitBoards,
     pub player: Player,
@@ -136,10 +138,20 @@ impl Board {
         Ok(board)
     }
 
+    pub fn move_piece(&mut self, piece_move: PieceMove) {
+        let moved_piece = self.get_piece(piece_move.from);
+        self.set_piece(piece_move.from, Piece::None);
+        self.set_piece(piece_move.to, moved_piece);
+
+        let moved_entity = self.get_entity(piece_move.from);
+        self.set_entity(piece_move.from, None);
+        self.set_entity(piece_move.to, moved_entity);
+    }
+
     pub fn get_piece(&self, tile_pos: TilePos) -> Piece {
-        for i in 0..(PIECE_AMT * COLOUR_AMT) {
-            if self.positions[Into::<Piece>::into(i)].get_bit_at(tile_pos) {
-                return Into::<Piece>::into(i);
+        for &piece in PIECES {
+            if self.positions[piece].get_bit_at(tile_pos) {
+                return piece;
             }
         }
 
@@ -148,8 +160,7 @@ impl Board {
 
     pub fn set_piece(&mut self, tile_pos: TilePos, piece: Piece) {
         // Clear all the other bitboards at this position, except this piece's position bitboard
-        for i in 0..(PIECE_AMT * COLOUR_AMT) {
-            let piece_i = Into::<Piece>::into(i);
+        for &piece_i in PIECES {
             if piece_i == piece {
                 self.positions[piece_i].set_bit_at(tile_pos, true);
             } else {
@@ -164,5 +175,26 @@ impl Board {
 
     pub fn set_entity(&mut self, tile_pos: TilePos, entity: Option<Entity>) {
         self.entities[tile_pos.file][tile_pos.rank] = entity;
+    }
+
+    pub fn get_player(&self) -> Player {
+        self.player
+    }
+
+    pub fn get_next_player(&self) -> Player {
+        match self.player {
+            Player::White => Player::Black,
+            Player::Black => Player::White,
+        }
+    }
+
+    pub fn next_player(&mut self) {
+        self.player = self.get_next_player();
+    }
+}
+
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Current Player: {:?}\n{}\n", self.player, self.positions)
     }
 }

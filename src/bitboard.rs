@@ -1,9 +1,12 @@
-use std::{fmt, ops};
+use std::{
+    fmt::{self, Display},
+    ops,
+};
 
 use crate::{
     board::TilePos,
     display::BOARD_SIZE,
-    piece::{Piece, COLOUR_AMT, PIECE_AMT},
+    piece::{Piece, COLOUR_AMT, PIECES, PIECE_AMT},
 };
 
 #[derive(Copy, Clone, Default)]
@@ -77,9 +80,51 @@ impl fmt::Display for BitBoard {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct BitBoards {
     boards: [BitBoard; PIECE_AMT * COLOUR_AMT],
+}
+
+impl Display for BitBoards {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut message = String::new();
+
+        for i in 0..BOARD_SIZE {
+            for j in 0..BOARD_SIZE {
+                let piece = {
+                    let found_pieces = self
+                        .boards
+                        .iter()
+                        .zip(PIECES)
+                        .filter_map(|(board, &piece)| {
+                            if (board.bits >> (i * BOARD_SIZE + j)) & 1 == 1 {
+                                Some(piece)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    if found_pieces.is_empty() {
+                        Piece::None
+                    } else {
+                        // Should only ever have one piece on each type
+                        found_pieces[0]
+                    }
+                };
+
+                let piece_char = Into::<char>::into(piece);
+
+                message += format!("{} ", piece_char).as_str();
+            }
+
+            if i < BOARD_SIZE - 1 {
+                message.push('\n');
+            }
+        }
+
+        write!(f, "{message}")
+    }
 }
 
 impl ops::Index<Piece> for BitBoards {

@@ -2,7 +2,7 @@ use bevy::{prelude::*, sprite::Mesh2dHandle};
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    board::TilePos,
+    board::{Board, Player, TilePos},
     display::{board_to_pixel_coords, pixel_to_board_coords, PIECE_SIZE, PIECE_SIZE_IMG},
 };
 
@@ -48,22 +48,37 @@ impl From<Piece> for usize {
 impl From<usize> for Piece {
     fn from(value: usize) -> Piece {
         match value {
-            0 => Piece::WQueen,
-            1 => Piece::WKing,
-            2 => Piece::WRook,
-            3 => Piece::WKnight,
-            4 => Piece::WBishop,
-            5 => Piece::WPawn,
-            6 => Piece::BQueen,
-            7 => Piece::BKing,
-            8 => Piece::BRook,
-            9 => Piece::BKnight,
-            10 => Piece::BBishop,
-            11 => Piece::BPawn,
+            1 => Piece::WQueen,
+            2 => Piece::WKing,
+            3 => Piece::WRook,
+            4 => Piece::WKnight,
+            5 => Piece::WBishop,
+            6 => Piece::WPawn,
+            9 => Piece::BQueen,
+            10 => Piece::BKing,
+            11 => Piece::BRook,
+            12 => Piece::BKnight,
+            13 => Piece::BBishop,
+            14 => Piece::BPawn,
             _ => Piece::None,
         }
     }
 }
+
+pub const PIECES: &[Piece] = &[
+    Piece::WQueen,
+    Piece::WKing,
+    Piece::WRook,
+    Piece::WKnight,
+    Piece::WBishop,
+    Piece::WPawn,
+    Piece::BQueen,
+    Piece::BKing,
+    Piece::BRook,
+    Piece::BKnight,
+    Piece::BBishop,
+    Piece::BPawn,
+];
 
 impl Piece {
     pub fn is_white(self) -> bool {
@@ -71,7 +86,22 @@ impl Piece {
     }
 
     pub fn is_black(self) -> bool {
-        ((self as u8 >> 3) & 1) == 1
+        ((self as u8 >> 3) & 1) == 1 && self != Piece::None
+    }
+
+    pub fn is_player(self, player: Player) -> bool {
+        match player {
+            Player::White => self.is_white(),
+            Player::Black => self.is_black(),
+        }
+    }
+
+    pub fn to_bitboard_index(&self) -> usize {
+        PIECES
+            .iter()
+            .enumerate()
+            .find_map(|(i, piece)| if self == piece { Some(i) } else { None })
+            .unwrap()
     }
 
     pub fn to_algebraic(&self) -> char {
@@ -112,6 +142,19 @@ impl Piece {
     }
 }
 
+impl From<Piece> for char {
+    fn from(val: Piece) -> Self {
+        val.to_algebraic()
+    }
+}
+
+impl From<char> for Piece {
+    fn from(val: char) -> Self {
+        // TODO
+        Piece::from_algebraic(val).unwrap()
+    }
+}
+
 #[derive(Bundle)]
 pub struct PieceBundle {
     pub sprite: SpriteSheetBundle,
@@ -135,7 +178,7 @@ impl PieceBundle {
                 texture,
                 atlas: TextureAtlas {
                     layout: texture_atlas_layout,
-                    index: Into::<usize>::into(key),
+                    index: key.to_bitboard_index(),
                 },
                 transform: Transform::from_scale(Vec3::splat(PIECE_SIZE / PIECE_SIZE_IMG))
                     .with_translation(Vec3::new(x, y, 1.)),
@@ -199,14 +242,51 @@ fn on_piece_drag_end(
 }
 
 pub fn piece_move_event_reader(
+    mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
     mut transform_query: Query<&mut Transform>,
+    mut board: ResMut<Board>,
 ) {
     for ev in ev_piece_move.read() {
-        let mut transform = transform_query.get_mut(ev.entity).unwrap();
+        // Entity Logic
+        let move_complete;
+        {
+            let mut transform = transform_query.get_mut(ev.entity).unwrap();
 
-        let (x, y) = board_to_pixel_coords(ev.piece_move.to.file, ev.piece_move.to.rank);
+            let moved_to = board.get_piece(ev.piece_move.to);
 
-        transform.translation = Vec3::new(x, y, 1.);
+            println!(
+                "{:?}\t{moved_to:?}\t\t{}\t{:?}",
+                board.get_piece(ev.piece_move.from),
+                board.get_piece(ev.piece_move.from).is_player(board.player),
+                board.player,
+            );
+
+            // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn)
+            let (x, y) = if !moved_to.is_player(board.player)
+                && board.get_piece(ev.piece_move.from).is_player(board.player)
+            {
+                if moved_to != Piece::None {
+                    let moved_to = board.get_entity(ev.piece_move.to).unwrap();
+
+                    commands.entity(moved_to).despawn();
+                }
+
+                move_complete = true;
+                board_to_pixel_coords(ev.piece_move.to.file, ev.piece_move.to.rank)
+            } else {
+                // Reset position
+                move_complete = false;
+                board_to_pixel_coords(ev.piece_move.from.file, ev.piece_move.from.rank)
+            };
+            transform.translation = Vec3::new(x, y, 1.);
+        }
+
+        // Board Logic
+        if move_complete {
+            board.move_piece(ev.piece_move);
+            println!("{}", board.clone());
+            board.next_player();
+        }
     }
 }
