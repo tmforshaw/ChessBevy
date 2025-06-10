@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     bitboard::BitBoards,
-    display::BOARD_SIZE,
+    display::{board_to_pixel_coords, BOARD_SIZE, PIECE_SIZE},
     piece::{Piece, PieceMove, COLOUR_AMT, PIECES},
 };
 
@@ -44,6 +44,12 @@ impl Default for Board {
         const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
         Board::from_fen(DEFAULT_FEN).unwrap()
+    }
+}
+
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Current Player: {:?}\n{}\n", self.player, self.positions)
     }
 }
 
@@ -193,8 +199,45 @@ impl Board {
     }
 }
 
-impl std::fmt::Display for Board {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Current Player: {:?}\n{}\n", self.player, self.positions)
+#[derive(Event, Debug)]
+pub struct PossibleMoveDisplayEvent {
+    pub from: TilePos,
+    pub show: bool,
+}
+
+#[derive(Component)]
+pub struct PossibleMoveMarker;
+
+pub fn possible_move_event_handler(
+    mut ev_display: EventReader<PossibleMoveDisplayEvent>,
+    possible_move_entities: Query<Entity, With<PossibleMoveMarker>>,
+    mut commands: Commands,
+) {
+    for ev in ev_display.read() {
+        if ev.show {
+            // TODO Get possible moves
+            let positions = vec![TilePos::new(3, 3)];
+
+            for pos in positions {
+                let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgba(1., 0., 1., 0.75),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(x, y, 2.)
+                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        ..default()
+                    },
+                    PossibleMoveMarker,
+                ));
+            }
+        } else {
+            for entity in possible_move_entities.iter() {
+                commands.entity(entity).despawn();
+            }
+        }
     }
 }

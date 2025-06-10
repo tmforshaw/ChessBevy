@@ -6,9 +6,9 @@ use crate::{
 };
 
 pub const BOARD_SIZE: usize = 8;
-pub const PIECE_SIZE: f32 = 150.;
-pub const PIECE_SIZE_IMG: f32 = 60.;
-pub const BOARD_SPACING: f32 = 4.;
+pub const PIECE_SIZE: f32 = 200.;
+pub const PIECE_SIZE_IMG: f32 = 150.;
+pub const BOARD_SPACING: f32 = PIECE_SIZE * 0.027;
 
 const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 

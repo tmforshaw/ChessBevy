@@ -1,8 +1,8 @@
-use bevy::{prelude::*, sprite::Mesh2dHandle};
+use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    board::{Board, Player, TilePos},
+    board::{Board, Player, PossibleMoveDisplayEvent, TilePos},
     display::{board_to_pixel_coords, pixel_to_board_coords, PIECE_SIZE, PIECE_SIZE_IMG},
 };
 
@@ -97,6 +97,7 @@ impl Piece {
     }
 
     pub fn to_bitboard_index(&self) -> usize {
+        // Will panic if Piece::None is used as an index
         PIECES
             .iter()
             .enumerate()
@@ -158,7 +159,7 @@ impl From<char> for Piece {
 #[derive(Bundle)]
 pub struct PieceBundle {
     pub sprite: SpriteSheetBundle,
-    // on_drag_start_listener: On<Pointer<DragStart>>,
+    on_drag_start_listener: On<Pointer<DragStart>>,
     on_drag_listener: On<Pointer<Drag>>,
     on_drag_end_listener: On<Pointer<DragEnd>>,
 }
@@ -184,10 +185,31 @@ impl PieceBundle {
                     .with_translation(Vec3::new(x, y, 1.)),
                 ..default()
             },
-            // on_drag_start_listener: On::<Pointer<DragStart>>::run(draw_possible_moves),
+            on_drag_start_listener: On::<Pointer<DragStart>>::run(on_piece_drag_start),
             on_drag_listener: On::<Pointer<Drag>>::run(on_piece_drag),
             on_drag_end_listener: On::<Pointer<DragEnd>>::run(on_piece_drag_end),
         }
+    }
+}
+
+fn on_piece_drag_start(
+    mut ev_drag: EventReader<Pointer<Drag>>,
+    mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
+    // mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
+) {
+    for ev in ev_drag.read() {
+        let mouse_pos = ev.pointer_location.position;
+        let (file, rank) = pixel_to_board_coords(mouse_pos.x, mouse_pos.y);
+
+        ev_draw_moves.send(PossibleMoveDisplayEvent {
+            from: TilePos::new(file, rank),
+            show: true,
+        });
+
+        // ev_display_event.send(BitBoardDisplayEvent {
+        //     board_type: Some(Piece::WRook),
+        //     show: true,
+        // });
     }
 }
 
@@ -205,11 +227,11 @@ fn on_piece_drag(
 
 // Finalise the movement of a piece, either snapping it to the grid, or by moving it back
 fn on_piece_drag_end(
-    mut commands: Commands,
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
-    possible_move_meshes: Query<Entity, With<Mesh2dHandle>>,
+    mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
     mut ev_piece_move: EventWriter<PieceMoveEvent>,
+    // mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
 ) {
     for drag_data in drag_er.read() {
         let transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -226,6 +248,11 @@ fn on_piece_drag_end(
             transform.translation.y + PIECE_SIZE / 2.,
         );
 
+        ev_draw_moves.send(PossibleMoveDisplayEvent {
+            from: TilePos::new(file, rank),
+            show: false,
+        });
+
         ev_piece_move.send(PieceMoveEvent {
             piece_move: PieceMove {
                 from: TilePos::new(ori_file, ori_rank),
@@ -234,10 +261,10 @@ fn on_piece_drag_end(
             entity: drag_data.target,
         });
 
-        // Clean up the possible move markers
-        for mesh in possible_move_meshes.iter() {
-            commands.entity(mesh).despawn();
-        }
+        // ev_display_event.send(BitBoardDisplayEvent {
+        //     board_type: None,
+        //     show: false,
+        // });
     }
 }
 
@@ -254,13 +281,6 @@ pub fn piece_move_event_reader(
             let mut transform = transform_query.get_mut(ev.entity).unwrap();
 
             let moved_to = board.get_piece(ev.piece_move.to);
-
-            println!(
-                "{:?}\t{moved_to:?}\t\t{}\t{:?}",
-                board.get_piece(ev.piece_move.from),
-                board.get_piece(ev.piece_move.from).is_player(board.player),
-                board.player,
-            );
 
             // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn)
             let (x, y) = if !moved_to.is_player(board.player)

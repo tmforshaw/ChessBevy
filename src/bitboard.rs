@@ -3,9 +3,11 @@ use std::{
     ops,
 };
 
+use bevy::prelude::*;
+
 use crate::{
-    board::TilePos,
-    display::BOARD_SIZE,
+    board::{Board, TilePos},
+    display::{board_to_pixel_coords, BOARD_SIZE, PIECE_SIZE},
     piece::{Piece, COLOUR_AMT, PIECES, PIECE_AMT},
 };
 
@@ -32,6 +34,28 @@ impl BitBoard {
 
     pub fn set_bit_at(&mut self, tile_pos: TilePos, value: bool) {
         self.set_bit(tile_pos.file * BOARD_SIZE + tile_pos.rank, value);
+    }
+
+    pub fn get_positions(&self) -> Vec<TilePos> {
+        let mut positions = Vec::new();
+
+        let mut bits = self.bits;
+        for i in 0..BOARD_SIZE {
+            for j in 0..BOARD_SIZE {
+                // Exit loop when consumed bits
+                if bits == 0 {
+                    break;
+                }
+
+                if (bits & 1) > 0 {
+                    positions.push(TilePos::new(i, j))
+                }
+
+                bits >>= 1;
+            }
+        }
+
+        positions
     }
 
     pub fn set_file(&mut self, file: usize, file_value: u8) {
@@ -143,6 +167,51 @@ impl ops::IndexMut<Piece> for BitBoards {
         match piece {
             Piece::None => todo!(),
             _ => &mut self.boards[Into::<usize>::into(piece)],
+        }
+    }
+}
+
+#[derive(Event, Debug)]
+pub struct BitBoardDisplayEvent {
+    pub board_type: Option<Piece>,
+    pub show: bool,
+}
+
+#[derive(Component)]
+pub struct BitBoardMarker;
+
+pub fn bitboard_event_handler(
+    mut ev_display: EventReader<BitBoardDisplayEvent>,
+    board: Res<Board>,
+    bitboard_entities: Query<Entity, With<BitBoardMarker>>,
+    mut commands: Commands,
+) {
+    for ev in ev_display.read() {
+        if ev.show {
+            if let Some(board_type) = ev.board_type {
+                let bitboard = board.positions[board_type];
+
+                for pos in bitboard.get_positions() {
+                    let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+
+                    commands.spawn((
+                        SpriteBundle {
+                            sprite: Sprite {
+                                color: Color::rgba(1., 0., 0., 0.75),
+                                ..default()
+                            },
+                            transform: Transform::from_xyz(x, y, 2.)
+                                .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                            ..default()
+                        },
+                        BitBoardMarker,
+                    ));
+                }
+            }
+        } else {
+            for entity in bitboard_entities.iter() {
+                commands.entity(entity).despawn();
+            }
         }
     }
 }
