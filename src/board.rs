@@ -9,7 +9,7 @@ use crate::{
     piece_move::PieceMove,
 };
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Player {
     #[default]
     White,
@@ -17,7 +17,7 @@ pub enum Player {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct TilePos {
     pub file: usize,
     pub rank: usize,
@@ -197,5 +197,163 @@ impl Board {
 
     pub fn next_player(&mut self) {
         self.player = self.get_next_player();
+    }
+
+    pub fn get_orthogonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+        let mut positions = Vec::new();
+        for i in 0..BOARD_SIZE {
+            if i != from.file {
+                positions.push(TilePos::new(i, from.rank))
+            }
+        }
+        for j in 0..BOARD_SIZE {
+            if j != from.rank {
+                positions.push(TilePos::new(from.file, j))
+            }
+        }
+
+        positions
+    }
+
+    pub fn get_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+        let mut positions = Vec::new();
+
+        for k in 1..BOARD_SIZE {
+            let up = {
+                let up = from.file + k;
+                if up < BOARD_SIZE {
+                    Some(up)
+                } else {
+                    None
+                }
+            };
+            let right = {
+                let right = from.rank + k;
+                if right < BOARD_SIZE {
+                    Some(right)
+                } else {
+                    None
+                }
+            };
+            let down = from.file.checked_sub(k);
+            let left = from.rank.checked_sub(k);
+
+            let urdl = (up, right, down, left);
+            if let (None, None, None, None) = urdl {
+                break;
+            }
+            if let (Some(u), Some(r), _, _) = urdl {
+                positions.push(TilePos::new(u, r))
+            }
+            if let (_, Some(r), Some(d), _) = urdl {
+                positions.push(TilePos::new(d, r))
+            }
+            if let (_, _, Some(d), Some(l)) = urdl {
+                positions.push(TilePos::new(d, l))
+            }
+            if let (Some(u), _, _, Some(l)) = urdl {
+                positions.push(TilePos::new(u, l))
+            }
+        }
+
+        positions
+    }
+
+    pub fn get_ortho_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+        let mut positions = self.get_orthogonal_moves(from);
+        positions.append(&mut self.get_diagonal_moves(from));
+
+        positions
+    }
+
+    pub fn get_knight_moves(&self, from: TilePos) -> Vec<TilePos> {
+        let mut positions = Vec::new();
+
+        for i in [-2, -1, 1, 2_isize] {
+            for j in [-2, -1, 1, 2_isize] {
+                if i.abs() != j.abs()
+                    && from.file as isize + i >= 0
+                    && from.file as isize + i < BOARD_SIZE as isize
+                    && from.rank as isize + j >= 0
+                    && from.rank as isize + j < BOARD_SIZE as isize
+                {
+                    positions.push(TilePos::new(
+                        (from.file as isize + i) as usize,
+                        (from.rank as isize + j) as usize,
+                    ))
+                }
+            }
+        }
+
+        positions
+    }
+
+    pub fn get_king_moves(&self, from: TilePos) -> Vec<TilePos> {
+        let mut positions = Vec::new();
+
+        for i in [-1, 0, 1] {
+            for j in [-1, 0, 1] {
+                if !(i == 0 && j == 0) {
+                    let vertical = from.file as isize + i;
+                    let horizontal = from.rank as isize + j;
+
+                    if vertical >= 0
+                        && vertical < BOARD_SIZE as isize
+                        && horizontal >= 0
+                        && horizontal < BOARD_SIZE as isize
+                    {
+                        positions.push(TilePos::new(
+                            (from.file as isize + i) as usize,
+                            (from.rank as isize + j) as usize,
+                        ))
+                    }
+                }
+            }
+        }
+
+        positions
+    }
+
+    pub fn get_pawn_moves(&self, from: TilePos) -> Vec<TilePos> {
+        let piece = self.get_piece(from);
+        let vertical_dir = piece.is_white() as isize * 2 - 1;
+
+        let mut positions = Vec::new();
+
+        // Single Move Vertically and Diagonal Captures
+        let new_vertical_pos = from.file as isize + vertical_dir;
+        if new_vertical_pos > 0 && new_vertical_pos < BOARD_SIZE as isize {
+            // Single Move Vertically
+            positions.push(TilePos::new(
+                (from.file as isize + vertical_dir) as usize,
+                from.rank,
+            ));
+
+            // Diagonal Captures
+            for k in [-1, 1] {
+                let new_horizontal_pos = from.rank as isize + k;
+
+                let new_pos = TilePos::new(new_vertical_pos as usize, new_horizontal_pos as usize);
+                if new_horizontal_pos > 0 && new_horizontal_pos < BOARD_SIZE as isize {
+                    if let Some(player) = piece.to_player() {
+                        if let Some(captured_player) = self.get_piece(new_pos).to_player() {
+                            if player != captured_player {
+                                positions.push(new_pos);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Double Vertical Move
+        if (piece.is_white() && from.file == 1) || (piece.is_black() && from.file == BOARD_SIZE - 2)
+        {
+            positions.push(TilePos::new(
+                (from.file as isize + 2 * vertical_dir) as usize,
+                from.rank,
+            ))
+        }
+        positions
     }
 }

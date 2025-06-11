@@ -79,6 +79,26 @@ impl Piece {
         ((self as u8 >> 3) & 1) == 0 && self != Piece::None
     }
 
+    pub fn to_player(self) -> Option<Player> {
+        match self {
+            Piece::BQueen
+            | Piece::BKing
+            | Piece::BRook
+            | Piece::BKnight
+            | Piece::BBishop
+            | Piece::BPawn => Some(Player::Black),
+
+            Piece::WQueen
+            | Piece::WKing
+            | Piece::WRook
+            | Piece::WKnight
+            | Piece::WBishop
+            | Piece::WPawn => Some(Player::White),
+
+            Piece::None => None,
+        }
+    }
+
     pub fn is_player(self, player: Player) -> bool {
         match player {
             Player::White => self.is_white(),
