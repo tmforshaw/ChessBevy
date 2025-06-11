@@ -187,6 +187,10 @@ pub fn bitboard_event_handler(
     mut commands: Commands,
 ) {
     for ev in ev_display.read() {
+        for entity in bitboard_entities.iter() {
+            commands.entity(entity).despawn();
+        }
+
         if ev.show {
             if let Some(board_type) = ev.board_type {
                 let bitboard = board.positions[board_type];
@@ -209,9 +213,9 @@ pub fn bitboard_event_handler(
                 }
             }
         } else {
-            for entity in bitboard_entities.iter() {
-                commands.entity(entity).despawn();
-            }
+            // for entity in bitboard_entities.iter() {
+            //     commands.entity(entity).despawn();
+            // }
         }
     }
 }

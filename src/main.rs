@@ -1,13 +1,17 @@
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bitboard::{bitboard_event_handler, BitBoardDisplayEvent};
-use board::{possible_move_event_handler, PossibleMoveDisplayEvent};
-use piece::{piece_move_event_reader, PieceMoveEvent};
+use keyboard::keyboard_event_handler;
+use piece_move::{piece_move_event_reader, PieceMoveEvent};
+use possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent};
 
 pub mod bitboard;
 pub mod board;
 pub mod display;
+pub mod keyboard;
 pub mod piece;
+pub mod piece_move;
+pub mod possible_moves;
 
 use crate::{board::Board, display::display_board};
 
@@ -37,6 +41,7 @@ fn main() {
                 piece_move_event_reader,
                 bitboard_event_handler,
                 possible_move_event_handler,
+                keyboard_event_handler,
             ),
         )
         .add_event::<PieceMoveEvent>()

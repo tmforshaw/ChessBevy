@@ -2,25 +2,14 @@ use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    bitboard::BitBoardDisplayEvent,
-    board::{Board, Player, PossibleMoveDisplayEvent, TilePos},
+    board::{Player, TilePos},
     display::{board_to_pixel_coords, pixel_to_board_coords, PIECE_SIZE, PIECE_SIZE_IMG},
+    piece_move::{PieceMove, PieceMoveEvent},
+    possible_moves::PossibleMoveDisplayEvent,
 };
 
 pub const PIECE_AMT: usize = 6;
 pub const COLOUR_AMT: usize = 2;
-
-#[derive(Event)]
-pub struct PieceMoveEvent {
-    pub piece_move: PieceMove,
-    pub entity: Entity,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct PieceMove {
-    pub from: TilePos,
-    pub to: TilePos,
-}
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -152,7 +141,7 @@ impl From<Piece> for char {
 
 impl From<char> for Piece {
     fn from(val: char) -> Self {
-        // TODO
+        // TODO Stop the panic when incorrect letter is parsed
         Piece::from_algebraic(val).unwrap()
     }
 }
@@ -196,7 +185,6 @@ impl PieceBundle {
 fn on_piece_drag_start(
     mut ev_drag: EventReader<Pointer<Drag>>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
-    mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
     mut transform_query: Query<&mut Transform>,
 ) {
     for ev in ev_drag.read() {
@@ -207,11 +195,6 @@ fn on_piece_drag_start(
 
         ev_draw_moves.send(PossibleMoveDisplayEvent {
             from: TilePos::new(file, rank),
-            show: true,
-        });
-
-        ev_display_event.send(BitBoardDisplayEvent {
-            board_type: Some(Piece::WPawn),
             show: true,
         });
     }
@@ -235,7 +218,6 @@ fn on_piece_drag_end(
     mut transform_query: Query<&mut Transform>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
     mut ev_piece_move: EventWriter<PieceMoveEvent>,
-    mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
 ) {
     for drag_data in drag_er.read() {
         let transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -258,59 +240,8 @@ fn on_piece_drag_end(
         });
 
         ev_piece_move.send(PieceMoveEvent {
-            piece_move: PieceMove {
-                from: TilePos::new(ori_file, ori_rank),
-                to: TilePos::new(file, rank),
-            },
+            piece_move: PieceMove::new(TilePos::new(ori_file, ori_rank), TilePos::new(file, rank)),
             entity: drag_data.target,
         });
-
-        ev_display_event.send(BitBoardDisplayEvent {
-            board_type: None,
-            show: false,
-        });
-    }
-}
-
-pub fn piece_move_event_reader(
-    mut commands: Commands,
-    mut ev_piece_move: EventReader<PieceMoveEvent>,
-    mut transform_query: Query<&mut Transform>,
-    mut board: ResMut<Board>,
-) {
-    for ev in ev_piece_move.read() {
-        // Entity Logic
-        let move_complete;
-        {
-            let mut transform = transform_query.get_mut(ev.entity).unwrap();
-
-            let moved_to = board.get_piece(ev.piece_move.to);
-
-            // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn)
-            let (x, y) = if !moved_to.is_player(board.player)
-                && board.get_piece(ev.piece_move.from).is_player(board.player)
-            {
-                if moved_to != Piece::None {
-                    let moved_to = board.get_entity(ev.piece_move.to).unwrap();
-
-                    commands.entity(moved_to).despawn();
-                }
-
-                move_complete = true;
-                board_to_pixel_coords(ev.piece_move.to.file, ev.piece_move.to.rank)
-            } else {
-                // Reset position
-                move_complete = false;
-                board_to_pixel_coords(ev.piece_move.from.file, ev.piece_move.from.rank)
-            };
-            transform.translation = Vec3::new(x, y, 1.);
-        }
-
-        // Board Logic
-        if move_complete {
-            board.move_piece(ev.piece_move);
-            board.next_player();
-            println!("{}", board.clone());
-        }
     }
 }
