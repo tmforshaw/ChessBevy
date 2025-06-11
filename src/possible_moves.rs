@@ -23,7 +23,7 @@ pub fn possible_move_event_handler(
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            let positions = get_possible_moves(ev.from, board.clone());
+            let positions = get_possible_moves(board.clone(), ev.from);
             for pos in positions {
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
@@ -48,7 +48,7 @@ pub fn possible_move_event_handler(
     }
 }
 
-pub fn get_possible_moves(from: TilePos, board: Board) -> Vec<TilePos> {
+pub fn get_possible_moves(board: Board, from: TilePos) -> Vec<TilePos> {
     let piece = board.get_piece(from);
 
     (match piece {

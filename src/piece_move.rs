@@ -4,6 +4,7 @@ use crate::{
     board::{Board, TilePos},
     display::board_to_pixel_coords,
     piece::Piece,
+    possible_moves::get_possible_moves,
 };
 
 #[derive(Event)]
@@ -38,9 +39,10 @@ pub fn piece_move_event_reader(
 
             let moved_to = board.get_piece(ev.piece_move.to);
 
-            // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn)
+            // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
             let (x, y) = if !moved_to.is_player(board.player)
                 && board.get_piece(ev.piece_move.from).is_player(board.player)
+                && get_possible_moves(board.clone(), ev.piece_move.from).contains(&ev.piece_move.to)
             {
                 if moved_to != Piece::None {
                     let moved_to = board.get_entity(ev.piece_move.to).unwrap();
@@ -62,7 +64,7 @@ pub fn piece_move_event_reader(
         if move_complete {
             board.move_piece(ev.piece_move);
             board.next_player();
-            println!("{}", board.clone());
+            // println!("{}", board.clone());
         }
     }
 }
