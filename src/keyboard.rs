@@ -1,6 +1,6 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
-use crate::{bitboard::BitBoardDisplayEvent, piece::Piece};
+use crate::{bitboard::BitBoardDisplayEvent, piece::Piece, piece_move::MoveHistoryEvent};
 
 #[derive(Resource, Clone, Default)]
 pub struct KeyboardState {
@@ -11,6 +11,7 @@ pub fn keyboard_event_handler(
     mut keyboard_state: ResMut<KeyboardState>,
     mut ev_keyboard: EventReader<KeyboardInput>,
     mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
+    mut ev_move_history: EventWriter<MoveHistoryEvent>,
 ) {
     for ev in ev_keyboard.read() {
         if !ev.state.is_pressed() {
@@ -89,6 +90,13 @@ pub fn keyboard_event_handler(
                     keyboard_state.shift_pressed,
                     true,
                 ));
+            }
+
+            if ev.key_code == KeyCode::ArrowLeft {
+                ev_move_history.send(MoveHistoryEvent { backwards: true });
+            }
+            if ev.key_code == KeyCode::ArrowRight {
+                ev_move_history.send(MoveHistoryEvent { backwards: false });
             }
         }
     }

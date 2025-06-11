@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, Player, TilePos},
+    board::{Board, TilePos},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
 };
 

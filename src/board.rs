@@ -6,7 +6,7 @@ use crate::{
     bitboard::BitBoards,
     display::BOARD_SIZE,
     piece::{Piece, COLOUR_AMT, PIECES},
-    piece_move::PieceMove,
+    piece_move::{PieceMove, PieceMoveHistory},
 };
 
 #[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
@@ -27,6 +27,10 @@ impl TilePos {
     pub fn new(file: usize, rank: usize) -> Self {
         Self { file, rank }
     }
+
+    pub fn to_algebraic(&self) -> String {
+        format!("{}{}", (b'a' + self.file as u8) as char, self.rank + 1)
+    }
 }
 
 #[derive(Resource, Clone)]
@@ -38,6 +42,7 @@ pub struct Board {
     pub half_move_counter: usize,
     pub full_move_counter: usize,
     entities: [[Option<Entity>; BOARD_SIZE]; BOARD_SIZE],
+    pub move_history: PieceMoveHistory,
 }
 
 impl Default for Board {
@@ -64,7 +69,6 @@ impl Board {
         let mut file = 0;
 
         let mut board = Board {
-            // squares: [[Piece::None; BOARD_SIZE]; BOARD_SIZE],
             positions: BitBoards::default(),
             player: Player::default(),
             castling_rights: [(false, false); COLOUR_AMT],
@@ -72,6 +76,7 @@ impl Board {
             half_move_counter: 0,
             full_move_counter: 1,
             entities: [[None; BOARD_SIZE]; BOARD_SIZE],
+            move_history: PieceMoveHistory::default(),
         };
 
         for (chr_index, chr) in fen.char_indices() {

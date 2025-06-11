@@ -1,9 +1,11 @@
-use bevy::prelude::{ClearColorConfig, *};
+use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bitboard::{bitboard_event_handler, BitBoardDisplayEvent};
 use display::{background_colour_event_handler, BackgroundColourEvent};
 use keyboard::{keyboard_event_handler, KeyboardState};
-use piece_move::{piece_move_event_reader, PieceMoveEvent};
+use piece_move::{
+    move_history_event_handler, piece_move_event_reader, MoveHistoryEvent, PieceMoveEvent,
+};
 use possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent};
 
 pub mod bitboard;
@@ -47,12 +49,14 @@ fn main() {
                 possible_move_event_handler,
                 keyboard_event_handler,
                 background_colour_event_handler,
+                move_history_event_handler,
             ),
         )
         .add_event::<PieceMoveEvent>()
         .add_event::<BitBoardDisplayEvent>()
         .add_event::<PossibleMoveDisplayEvent>()
         .add_event::<BackgroundColourEvent>()
+        .add_event::<MoveHistoryEvent>()
         .run();
 }
 
