@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, TilePos},
+    board::{Board, Player, TilePos},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
 };
 
 pub const BOARD_SIZE: usize = 8;
 pub const PIECE_SIZE: f32 = 200.;
 pub const PIECE_SIZE_IMG: f32 = 150.;
-pub const BOARD_SPACING: f32 = PIECE_SIZE * 0.027;
+pub const BOARD_SPACING: f32 = 0.;
 
 const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
@@ -81,5 +81,25 @@ pub fn display_board(
                 board.set_entity(TilePos::new(file, rank), Some(entity.id()));
             }
         }
+    }
+}
+
+#[derive(Event)]
+pub struct BackgroundColourEvent {
+    colour: Color,
+}
+
+impl BackgroundColourEvent {
+    pub fn new(colour: Color) -> Self {
+        Self { colour }
+    }
+}
+
+pub fn background_colour_event_handler(
+    mut background_ev: EventReader<BackgroundColourEvent>,
+    mut clear_colour: ResMut<ClearColor>,
+) {
+    for ev in background_ev.read() {
+        clear_colour.0 = ev.colour;
     }
 }

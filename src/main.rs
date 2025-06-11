@@ -1,7 +1,8 @@
-use bevy::prelude::*;
+use bevy::prelude::{ClearColorConfig, *};
 use bevy_mod_picking::prelude::*;
 use bitboard::{bitboard_event_handler, BitBoardDisplayEvent};
-use keyboard::keyboard_event_handler;
+use display::{background_colour_event_handler, BackgroundColourEvent};
+use keyboard::{keyboard_event_handler, KeyboardState};
 use piece_move::{piece_move_event_reader, PieceMoveEvent};
 use possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent};
 
@@ -25,6 +26,7 @@ fn main() {
                         title: "Chez.cum".into(),
                         resolution: (1920., 1280.).into(),
                         resizable: true,
+
                         ..default()
                     }),
                     ..default()
@@ -34,6 +36,8 @@ fn main() {
         ))
         // .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
         .init_resource::<Board>()
+        .init_resource::<KeyboardState>()
+        .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))
         .add_systems(Startup, (setup, display_board))
         .add_systems(
             Update,
@@ -42,11 +46,13 @@ fn main() {
                 bitboard_event_handler,
                 possible_move_event_handler,
                 keyboard_event_handler,
+                background_colour_event_handler,
             ),
         )
         .add_event::<PieceMoveEvent>()
         .add_event::<BitBoardDisplayEvent>()
         .add_event::<PossibleMoveDisplayEvent>()
+        .add_event::<BackgroundColourEvent>()
         .run();
 }
 

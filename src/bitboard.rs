@@ -174,7 +174,18 @@ impl ops::IndexMut<Piece> for BitBoards {
 #[derive(Event, Debug)]
 pub struct BitBoardDisplayEvent {
     pub board_type: Option<Piece>,
+    pub clear: bool,
     pub show: bool,
+}
+
+impl BitBoardDisplayEvent {
+    pub fn new(board_type: Option<Piece>, clear: bool, show: bool) -> Self {
+        Self {
+            board_type,
+            clear,
+            show,
+        }
+    }
 }
 
 #[derive(Component)]
@@ -187,8 +198,10 @@ pub fn bitboard_event_handler(
     mut commands: Commands,
 ) {
     for ev in ev_display.read() {
-        for entity in bitboard_entities.iter() {
-            commands.entity(entity).despawn();
+        if ev.clear {
+            for entity in bitboard_entities.iter() {
+                commands.entity(entity).despawn();
+            }
         }
 
         if ev.show {
@@ -212,10 +225,6 @@ pub fn bitboard_event_handler(
                     ));
                 }
             }
-        } else {
-            // for entity in bitboard_entities.iter() {
-            //     commands.entity(entity).despawn();
-            // }
         }
     }
 }

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, TilePos},
-    display::board_to_pixel_coords,
+    board::{Board, Player, TilePos},
+    display::{board_to_pixel_coords, BackgroundColourEvent},
     piece::Piece,
     possible_moves::get_possible_moves,
 };
@@ -30,6 +30,7 @@ pub fn piece_move_event_reader(
     mut ev_piece_move: EventReader<PieceMoveEvent>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
+    mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
         // Entity Logic
@@ -66,5 +67,11 @@ pub fn piece_move_event_reader(
             board.next_player();
             // println!("{}", board.clone());
         }
+
+        // Change background colour to show current move
+        background_ev.send(BackgroundColourEvent::new(match board.get_player() {
+            Player::White => Color::rgb(1., 1., 1.),
+            Player::Black => Color::rgb(0., 0., 0.),
+        }));
     }
 }
