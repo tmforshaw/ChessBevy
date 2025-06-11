@@ -113,7 +113,7 @@ impl Display for BitBoards {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut message = String::new();
 
-        for i in 0..BOARD_SIZE {
+        for i in (0..BOARD_SIZE).rev() {
             for j in 0..BOARD_SIZE {
                 let piece = {
                     let found_pieces = self
@@ -142,7 +142,7 @@ impl Display for BitBoards {
                 message += format!("{} ", piece_char).as_str();
             }
 
-            if i < BOARD_SIZE - 1 {
+            if i > 0 {
                 message.push('\n');
             }
         }
@@ -157,7 +157,7 @@ impl ops::Index<Piece> for BitBoards {
     fn index(&self, piece: Piece) -> &Self::Output {
         match piece {
             Piece::None => todo!(),
-            _ => &self.boards[Into::<usize>::into(piece)],
+            _ => &self.boards[piece.to_bitboard_index()],
         }
     }
 }
@@ -166,7 +166,7 @@ impl ops::IndexMut<Piece> for BitBoards {
     fn index_mut(&mut self, piece: Piece) -> &mut Self::Output {
         match piece {
             Piece::None => todo!(),
-            _ => &mut self.boards[Into::<usize>::into(piece)],
+            _ => &mut self.boards[piece.to_bitboard_index()],
         }
     }
 }

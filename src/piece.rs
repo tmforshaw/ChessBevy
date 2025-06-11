@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
+    bitboard::BitBoardDisplayEvent,
     board::{Board, Player, PossibleMoveDisplayEvent, TilePos},
     display::{board_to_pixel_coords, pixel_to_board_coords, PIECE_SIZE, PIECE_SIZE_IMG},
 };
@@ -24,60 +25,60 @@ pub struct PieceMove {
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Piece {
-    None = 0,
-    WQueen = 1,
-    WKing = 2,
-    WRook = 3,
-    WKnight = 4,
-    WBishop = 5,
-    WPawn = 6,
-    BQueen = 9,
-    BKing = 10,
-    BRook = 11,
-    BKnight = 12,
-    BBishop = 13,
-    BPawn = 14,
+    BQueen = 0,
+    BKing = 1,
+    BRook = 2,
+    BKnight = 3,
+    BBishop = 4,
+    BPawn = 5,
+    WQueen = 8,
+    WKing = 9,
+    WRook = 10,
+    WKnight = 11,
+    WBishop = 12,
+    WPawn = 13,
+    None = 14,
 }
 
 impl From<Piece> for usize {
     fn from(value: Piece) -> usize {
-        value as usize - 1 - 2 * (value.is_white() as usize)
+        value as usize - 1 - 2 * (value.is_black() as usize)
     }
 }
 
 impl From<usize> for Piece {
     fn from(value: usize) -> Piece {
         match value {
-            1 => Piece::WQueen,
-            2 => Piece::WKing,
-            3 => Piece::WRook,
-            4 => Piece::WKnight,
-            5 => Piece::WBishop,
-            6 => Piece::WPawn,
-            9 => Piece::BQueen,
-            10 => Piece::BKing,
-            11 => Piece::BRook,
-            12 => Piece::BKnight,
-            13 => Piece::BBishop,
-            14 => Piece::BPawn,
+            0 => Piece::BQueen,
+            1 => Piece::BKing,
+            2 => Piece::BRook,
+            3 => Piece::BKnight,
+            4 => Piece::BBishop,
+            5 => Piece::BPawn,
+            8 => Piece::WQueen,
+            9 => Piece::WKing,
+            10 => Piece::WRook,
+            11 => Piece::WKnight,
+            12 => Piece::WBishop,
+            13 => Piece::WPawn,
             _ => Piece::None,
         }
     }
 }
 
 pub const PIECES: &[Piece] = &[
-    Piece::WQueen,
-    Piece::WKing,
-    Piece::WRook,
-    Piece::WKnight,
-    Piece::WBishop,
-    Piece::WPawn,
     Piece::BQueen,
     Piece::BKing,
     Piece::BRook,
     Piece::BKnight,
     Piece::BBishop,
     Piece::BPawn,
+    Piece::WQueen,
+    Piece::WKing,
+    Piece::WRook,
+    Piece::WKnight,
+    Piece::WBishop,
+    Piece::WPawn,
 ];
 
 impl Piece {
@@ -195,21 +196,24 @@ impl PieceBundle {
 fn on_piece_drag_start(
     mut ev_drag: EventReader<Pointer<Drag>>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
-    // mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
+    mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
+    mut transform_query: Query<&mut Transform>,
 ) {
     for ev in ev_drag.read() {
-        let mouse_pos = ev.pointer_location.position;
-        let (file, rank) = pixel_to_board_coords(mouse_pos.x, mouse_pos.y);
+        let transform = transform_query.get_mut(ev.target).unwrap();
+
+        let mouse_pos = transform.translation.xy() * Vec2::new(1., -1.);
+        let (file, rank) = pixel_to_board_coords(mouse_pos.x, -mouse_pos.y);
 
         ev_draw_moves.send(PossibleMoveDisplayEvent {
             from: TilePos::new(file, rank),
             show: true,
         });
 
-        // ev_display_event.send(BitBoardDisplayEvent {
-        //     board_type: Some(Piece::WRook),
-        //     show: true,
-        // });
+        ev_display_event.send(BitBoardDisplayEvent {
+            board_type: Some(Piece::WPawn),
+            show: true,
+        });
     }
 }
 
@@ -231,7 +235,7 @@ fn on_piece_drag_end(
     mut transform_query: Query<&mut Transform>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
     mut ev_piece_move: EventWriter<PieceMoveEvent>,
-    // mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
+    mut ev_display_event: EventWriter<BitBoardDisplayEvent>,
 ) {
     for drag_data in drag_er.read() {
         let transform = transform_query.get_mut(drag_data.target).unwrap();
@@ -261,10 +265,10 @@ fn on_piece_drag_end(
             entity: drag_data.target,
         });
 
-        // ev_display_event.send(BitBoardDisplayEvent {
-        //     board_type: None,
-        //     show: false,
-        // });
+        ev_display_event.send(BitBoardDisplayEvent {
+            board_type: None,
+            show: false,
+        });
     }
 }
 
@@ -305,8 +309,8 @@ pub fn piece_move_event_reader(
         // Board Logic
         if move_complete {
             board.move_piece(ev.piece_move);
-            println!("{}", board.clone());
             board.next_player();
+            println!("{}", board.clone());
         }
     }
 }

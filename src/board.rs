@@ -85,7 +85,7 @@ impl Board {
                     ' ' => section_index += 1,
                     _ => {
                         if let Some(piece) = Piece::from_algebraic(chr) {
-                            let tile_pos = TilePos::new(file, rank);
+                            let tile_pos = TilePos::new(BOARD_SIZE - 1 - file, rank);
                             board.set_piece(tile_pos, piece);
                             board.positions[piece].set_bit_at(tile_pos, true);
 
@@ -216,7 +216,13 @@ pub fn possible_move_event_handler(
     for ev in ev_display.read() {
         if ev.show {
             // TODO Get possible moves
-            let positions = vec![TilePos::new(3, 3)];
+            let from = ev.from;
+            let positions = vec![
+                ev.from,
+                TilePos::new(from.file + 1, from.rank),
+                TilePos::new(from.file, from.rank + 1),
+                TilePos::new(from.file, from.rank - 1),
+            ];
 
             for pos in positions {
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);

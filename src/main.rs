@@ -7,7 +7,6 @@ use piece::{piece_move_event_reader, PieceMoveEvent};
 pub mod bitboard;
 pub mod board;
 pub mod display;
-pub mod game;
 pub mod piece;
 
 use crate::{board::Board, display::display_board};
