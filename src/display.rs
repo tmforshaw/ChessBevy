@@ -10,7 +10,7 @@ pub const PIECE_SIZE: f32 = 200.;
 pub const PIECE_SIZE_IMG: f32 = 150.;
 pub const BOARD_SPACING: f32 = 0.;
 
-const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
+pub const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
 pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
     (

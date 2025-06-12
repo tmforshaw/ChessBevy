@@ -17,7 +17,7 @@ pub enum Player {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TilePos {
     pub file: usize,
     pub rank: usize,
@@ -30,6 +30,18 @@ impl TilePos {
 
     pub fn to_algebraic(&self) -> String {
         format!("{}{}", (b'a' + self.file as u8) as char, self.rank + 1)
+    }
+}
+
+impl std::fmt::Debug for TilePos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(file: {}, rank: {})", self.file, self.rank)
+    }
+}
+
+impl std::fmt::Display for TilePos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.file, self.rank)
     }
 }
 
