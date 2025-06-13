@@ -1,12 +1,10 @@
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bitboard::{bitboard_event_handler, BitBoardDisplayEvent};
-use board::TilePos;
 use display::{background_colour_event_handler, BackgroundColourEvent};
 use keyboard::{keyboard_event_handler, KeyboardState};
 use piece_move::{
-    move_history_event_handler, piece_move_event_reader, MoveHistoryEvent, PieceMove,
-    PieceMoveEvent,
+    move_history_event_handler, piece_move_event_reader, MoveHistoryEvent, PieceMoveEvent,
 };
 use possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent};
 
@@ -62,13 +60,6 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut board: ResMut<Board>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-
-    // board
-    //     .move_history
-    //     .make_move(PieceMove::new(TilePos::new(0, 0), TilePos::new(3, 4)), None);
-    // board.move_piece(PieceMove::new(TilePos::new(0, 0), TilePos::new(3, 4)));
-
-    // println!("traverse: {:?}", board.move_history.traverse_next());
 }

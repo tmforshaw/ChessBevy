@@ -45,6 +45,18 @@ impl std::fmt::Display for TilePos {
     }
 }
 
+impl From<(usize, usize)> for TilePos {
+    fn from((file, rank): (usize, usize)) -> Self {
+        Self::new(file, rank)
+    }
+}
+
+impl From<TilePos> for (usize, usize) {
+    fn from(value: TilePos) -> Self {
+        (value.file, value.rank)
+    }
+}
+
 #[derive(Resource, Clone)]
 pub struct Board {
     pub positions: BitBoards,

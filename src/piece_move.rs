@@ -4,7 +4,10 @@ use bevy::prelude::*;
 
 use crate::{
     board::{Board, Player, TilePos},
-    display::{board_to_pixel_coords, BackgroundColourEvent, PIECE_SIZE_IMG, PIECE_TEXTURE_FILE},
+    display::{
+        board_to_pixel_coords, BackgroundColourEvent, BOARD_SIZE, PIECE_SIZE_IMG,
+        PIECE_TEXTURE_FILE,
+    },
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
     possible_moves::get_possible_moves,
 };
@@ -82,7 +85,19 @@ pub fn piece_move_event_reader(
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
+    // // Texture atlas for all the pieces
+    // let texture = asset_server.load(PIECE_TEXTURE_FILE);
+    // let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+    //     Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
+    //     PIECE_AMT,
+    //     COLOUR_AMT,
+    //     None,
+    //     None,
+    // ));
+
     for ev in ev_piece_move.read() {
         if !ev.piece_move.show {
             board.move_piece(ev.piece_move);
@@ -124,17 +139,33 @@ pub fn piece_move_event_reader(
         if (move_complete && ev.piece_move.show) || (!move_complete && !ev.piece_move.show) {
             if ev.piece_move.show {
                 let piece_moved_to = if piece_captured {
-                    println!("got piece_captured");
                     board.get_piece(ev.piece_move.to)
                 } else {
                     Piece::None
                 };
 
                 // TODO could check for if move matches history here
+                let same_as_history_move = if let Some((history_move, _)) = board.move_history.get()
+                {
+                    // Made Different Move to history
+                    history_move == ev.piece_move
+                } else {
+                    false
+                };
 
-                board
-                    .move_history
-                    .make_move(ev.piece_move, piece_captured.then_some(piece_moved_to));
+                // println!(
+                //     "{:?}\t\t{:?}",
+                //     board.move_history.get(),
+                //     piece_captured.then_some(piece_moved_to),
+                // );
+
+                if !same_as_history_move {
+                    board
+                        .move_history
+                        .make_move(ev.piece_move, piece_captured.then_some(piece_moved_to));
+                } else {
+                    board.move_history.increment_index();
+                }
 
                 // Change background colour to show current move
                 board.next_player();
@@ -143,7 +174,7 @@ pub fn piece_move_event_reader(
                     Player::Black => Color::rgb(0., 0., 0.),
                 }));
 
-                println!("{}", board.move_history);
+                // println!("{}", board.move_history);
             }
             board.move_piece(ev.piece_move);
 
@@ -169,8 +200,7 @@ impl PieceMoveHistory {
             // Clear depending on where current_idx is
             if let Some(current_idx) = self.current_idx {
                 if current_idx + 1 < self.moves.len() {
-                    self.moves = self.moves[0..=current_idx].to_vec();
-                    println!("New Moves: {:?}", self.moves);
+                    self.clear_excess_moves();
                 }
             }
 
@@ -183,6 +213,19 @@ impl PieceMoveHistory {
         }
     }
 
+    pub fn increment_index(&mut self) {
+        self.current_idx = Some(match self.current_idx {
+            Some(idx) if idx < self.moves.len() => idx + 1,
+            Some(idx) => idx,
+            None => 0,
+        });
+    }
+
+    pub fn clear_excess_moves(&mut self) {
+        self.moves = self.moves[0..=self.current_idx.unwrap_or(0)].to_vec();
+        self.current_idx = (!self.moves.is_empty()).then_some(self.moves.len() - 1);
+    }
+
     pub fn get(&self) -> Option<(PieceMove, Option<Piece>)> {
         if !self.moves.is_empty() {
             Some(self.moves[self.current_idx.unwrap_or(0)])
@@ -193,58 +236,31 @@ impl PieceMoveHistory {
 
     pub fn traverse_next(&mut self) -> Option<(PieceMove, Option<Piece>)> {
         if let Some(current_idx) = self.current_idx {
-            self.current_idx = Some(current_idx + 1);
-
             if current_idx + 1 < self.moves.len() {
+                self.current_idx = Some((current_idx + 1).min(self.moves.len() - 1));
                 self.current_idx
                     .map(|_| self.moves[self.current_idx.unwrap_or(0)])
             } else {
                 None
             }
         } else {
-            // TODO
-            eprintln!("AHHHHHH");
             self.current_idx = Some(0);
             Some(self.moves[0])
         }
-
-        // println!("{:?}", self.current_idx);
-        // Some(self.moves[0])
     }
 
     pub fn traverse_prev(&mut self) -> Option<(PieceMove, Option<Piece>)> {
-        self.traverse(false)
-    }
-
-    fn traverse(&mut self, next: bool) -> Option<(PieceMove, Option<Piece>)> {
         if let Some(current_idx) = self.current_idx {
-            self.current_idx = if next {
-                if current_idx + 1 < self.moves.len() {
-                    Some(current_idx + 1)
-                } else {
-                    println!("final thing");
-                    Some(current_idx)
-                }
-            } else if current_idx > 0 {
+            self.current_idx = if current_idx > 0 {
                 Some(current_idx - 1)
             } else {
                 None
             };
 
-            return self
-                .current_idx
-                .map(|_| self.moves[self.current_idx.unwrap_or(0)]);
-        } else if next {
-            // TODO
-            eprintln!("AHHHHHH");
-            self.current_idx = Some(0);
-            return Some(self.moves[0]);
+            Some(self.moves[self.current_idx.map_or(0, |idx| idx + 1)])
         } else {
-            eprintln!("AHHHHHH");
+            None
         }
-
-        println!("{:?}", self.current_idx);
-        Some(self.moves[0])
     }
 }
 
@@ -272,26 +288,25 @@ pub fn move_history_event_handler(
     mut board: ResMut<Board>,
     mut transform_query: Query<&mut Transform>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
-    // mut commands: Commands,
-    // asset_server: Res<AssetServer>,
-    // mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // // TODO THIS CODE IS REPEATED CODE, MOVE INTO FUNCTION
-    // // Texture atlas for all the pieces
-    // let texture = asset_server.load(PIECE_TEXTURE_FILE);
-    // let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-    //     Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
-    //     PIECE_AMT,
-    //     COLOUR_AMT,
-    //     None,
-    //     None,
-    // ));
+    // TODO THIS CODE IS REPEATED CODE, MOVE INTO FUNCTION
+    // Texture atlas for all the pieces
+    let texture = asset_server.load(PIECE_TEXTURE_FILE);
+    let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+        Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
+        PIECE_AMT,
+        COLOUR_AMT,
+        None,
+        None,
+    ));
 
     for ev in move_history_ev.read() {
-        println!("MoveHistory: {}", ev.backwards);
+        // println!("MoveHistory: {}", ev.backwards);
         // TODO Unwrap
-        if let Some((mut piece_move, captured_piece)) = board.move_history.get() {
-            println!("true");
+        if let Some((mut piece_move, _)) = board.move_history.get() {
             // // if captured_piece.is_some() {
             // let piece_entity = match board.get_entity(piece_move.from) {
             //     Some(entity) => entity,
@@ -326,16 +341,43 @@ pub fn move_history_event_handler(
             // };
 
             let traversal_succeeded = if ev.backwards {
-                piece_move = piece_move.rev();
-                board.move_history.traverse_prev().is_some();
+                if let Some((history_move, _)) = board.move_history.traverse_prev() {
+                    piece_move = history_move.rev();
 
-                true
+                    true
+                } else {
+                    board.move_history.moves.is_empty()
+                }
             } else {
-                board.move_history.traverse_next().is_some()
+                // board.move_history.traverse_next().is_some()
+
+                if let Some((history_move, _)) = board.move_history.traverse_next() {
+                    piece_move = history_move;
+
+                    true
+                } else {
+                    false
+                }
             };
 
-            println!("{}", board.move_history);
+            let piece_move_original = if ev.backwards {
+                piece_move.rev()
+            } else {
+                piece_move
+            };
+            println!("{piece_move_original:?}");
+            // println!("{}", board.move_history);
+            if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
+                println!("piece to spawn: {:?}", piece_to_spawn);
+                let entity = commands.spawn(PieceBundle::new(
+                    piece_move_original.to.into(),
+                    piece_to_spawn,
+                    texture.clone(),
+                    texture_atlas_layout.clone(),
+                ));
 
+                board.set_entity(piece_move.to, Some(entity.id()));
+            }
             if traversal_succeeded {
                 let entity = match board.get_entity(piece_move.from) {
                     Some(entity) => entity,
@@ -345,9 +387,10 @@ pub fn move_history_event_handler(
                         //     entity
                         // } else {
                         eprintln!(
-                            "Entity not found: {}\t\t{:?}",
+                            "Entity not found: {}\t\t{:?}\t\t{:?}",
                             piece_move,
-                            board.get_entity(piece_move.to)
+                            board.get_entity(piece_move.from),
+                            board.move_history.current_idx
                         );
                         panic!()
                         // }
@@ -370,5 +413,4 @@ pub fn move_history_event_handler(
             }
         }
     }
-    // }
 }
