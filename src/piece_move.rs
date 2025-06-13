@@ -4,10 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     board::{Board, Player, TilePos},
-    display::{
-        board_to_pixel_coords, BackgroundColourEvent, BOARD_SIZE, PIECE_SIZE_IMG,
-        PIECE_TEXTURE_FILE,
-    },
+    display::{board_to_pixel_coords, BackgroundColourEvent, PIECE_SIZE_IMG, PIECE_TEXTURE_FILE},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
     possible_moves::get_possible_moves,
 };
@@ -85,22 +82,11 @@ pub fn piece_move_event_reader(
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // // Texture atlas for all the pieces
-    // let texture = asset_server.load(PIECE_TEXTURE_FILE);
-    // let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-    //     Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
-    //     PIECE_AMT,
-    //     COLOUR_AMT,
-    //     None,
-    //     None,
-    // ));
-
     for ev in ev_piece_move.read() {
         if !ev.piece_move.show {
             board.move_piece(ev.piece_move);
+
             continue;
         }
 
@@ -160,6 +146,14 @@ pub fn piece_move_event_reader(
                 // );
 
                 if !same_as_history_move {
+                    if let Some((_, captured_piece)) = board.move_history.get_mut() {
+                        if piece_captured {
+                            captured_piece.replace(piece_moved_to);
+                        } else {
+                            captured_piece.take();
+                        }
+                    }
+
                     board
                         .move_history
                         .make_move(ev.piece_move, piece_captured.then_some(piece_moved_to));
@@ -229,6 +223,15 @@ impl PieceMoveHistory {
     pub fn get(&self) -> Option<(PieceMove, Option<Piece>)> {
         if !self.moves.is_empty() {
             Some(self.moves[self.current_idx.unwrap_or(0)])
+        } else {
+            None
+        }
+    }
+
+    pub fn get_mut(&mut self) -> Option<(&mut PieceMove, &mut Option<Piece>)> {
+        if !self.moves.is_empty() {
+            let history_move = &mut self.moves[self.current_idx.unwrap_or(0)];
+            Some((&mut history_move.0, &mut history_move.1))
         } else {
             None
         }
@@ -304,42 +307,7 @@ pub fn move_history_event_handler(
     ));
 
     for ev in move_history_ev.read() {
-        // println!("MoveHistory: {}", ev.backwards);
-        // TODO Unwrap
         if let Some((mut piece_move, _)) = board.move_history.get() {
-            // // if captured_piece.is_some() {
-            // let piece_entity = match board.get_entity(piece_move.from) {
-            //     Some(entity) => entity,
-            //     None => {
-            //         if captured_piece.is_some() {
-            //             eprintln!("Could not find entity from board");
-            //             eprintln!(
-            //                 "{:?}\t {:?}\t\t {:?}\t {:?}",
-            //                 board.get_piece(piece_move.from),
-            //                 piece_move.from,
-            //                 board.get_piece(piece_move.to),
-            //                 piece_move.to,
-            //             );
-
-            //             let entity = commands.spawn(PieceBundle::new(
-            //                 (piece_move.to.file, piece_move.to.rank),
-            //                 board.get_piece(TilePos::new(piece_move.to.file, piece_move.to.rank)),
-            //                 texture.clone(),
-            //                 texture_atlas_layout.clone(),
-            //             ));
-
-            //             board.set_entity(
-            //                 TilePos::new(piece_move.from.file, piece_move.from.rank),
-            //                 Some(entity.id()),
-            //             );
-
-            //             entity.id()
-            //         } else {
-            //             todo!()
-            //         }
-            //     }
-            // };
-
             let traversal_succeeded = if ev.backwards {
                 if let Some((history_move, _)) = board.move_history.traverse_prev() {
                     piece_move = history_move.rev();
@@ -348,16 +316,12 @@ pub fn move_history_event_handler(
                 } else {
                     board.move_history.moves.is_empty()
                 }
+            } else if let Some((history_move, _)) = board.move_history.traverse_next() {
+                piece_move = history_move;
+
+                true
             } else {
-                // board.move_history.traverse_next().is_some()
-
-                if let Some((history_move, _)) = board.move_history.traverse_next() {
-                    piece_move = history_move;
-
-                    true
-                } else {
-                    false
-                }
+                false
             };
 
             let piece_move_original = if ev.backwards {
@@ -365,10 +329,9 @@ pub fn move_history_event_handler(
             } else {
                 piece_move
             };
-            println!("{piece_move_original:?}");
-            // println!("{}", board.move_history);
+
+            // Create a piece for captured pieces which were taken on this move
             if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
-                println!("piece to spawn: {:?}", piece_to_spawn);
                 let entity = commands.spawn(PieceBundle::new(
                     piece_move_original.to.into(),
                     piece_to_spawn,
@@ -376,16 +339,17 @@ pub fn move_history_event_handler(
                     texture_atlas_layout.clone(),
                 ));
 
+                // println!("{:?}", board.get_entity(piece_move.from));
+
                 board.set_entity(piece_move.to, Some(entity.id()));
+                println!("{}", board.positions);
+                board.set_piece(piece_move.to, piece_to_spawn);
+                println!("{}\n", board.positions);
             }
             if traversal_succeeded {
                 let entity = match board.get_entity(piece_move.from) {
                     Some(entity) => entity,
                     None => {
-                        // // TODO THis is a fudge
-                        // if let Some(entity) = board.get_entity(piece_move.to) {
-                        //     entity
-                        // } else {
                         eprintln!(
                             "Entity not found: {}\t\t{:?}\t\t{:?}",
                             piece_move,
@@ -393,7 +357,6 @@ pub fn move_history_event_handler(
                             board.move_history.current_idx
                         );
                         panic!()
-                        // }
                     }
                 };
 
