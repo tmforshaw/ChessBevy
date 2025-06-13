@@ -88,6 +88,7 @@ pub fn piece_move_event_reader(
             board.move_piece(ev.piece_move);
             continue;
         }
+
         // Entity Logic
         let mut piece_captured = false;
         let move_complete;
@@ -129,11 +130,14 @@ pub fn piece_move_event_reader(
                     Piece::None
                 };
 
+                // TODO could check for if move matches history here
+
                 board
                     .move_history
                     .make_move(ev.piece_move, piece_captured.then_some(piece_moved_to));
 
                 // Change background colour to show current move
+                board.next_player();
                 background_ev.send(BackgroundColourEvent::new(match board.get_player() {
                     Player::White => Color::rgb(1., 1., 1.),
                     Player::Black => Color::rgb(0., 0., 0.),
@@ -141,7 +145,6 @@ pub fn piece_move_event_reader(
 
                 println!("{}", board.move_history);
             }
-            board.next_player();
             board.move_piece(ev.piece_move);
 
             // println!("{}", board.clone());
@@ -164,10 +167,11 @@ impl PieceMoveHistory {
         // TODO Clear depending on if move matches history (when current_idx was not at final part of history)
         if piece_move.show {
             // Clear depending on where current_idx is
-            if self.current_idx != self.moves.len().checked_sub(1) && self.current_idx.is_some()
-            // && self.current_idx < self.moves.len()
-            {
-                self.moves = self.moves[0..self.current_idx.unwrap()].to_vec();
+            if let Some(current_idx) = self.current_idx {
+                if current_idx + 1 < self.moves.len() {
+                    self.moves = self.moves[0..=current_idx].to_vec();
+                    println!("New Moves: {:?}", self.moves);
+                }
             }
 
             self.current_idx = if let Some(current_idx) = self.current_idx {
@@ -180,11 +184,32 @@ impl PieceMoveHistory {
     }
 
     pub fn get(&self) -> Option<(PieceMove, Option<Piece>)> {
-        self.current_idx.map(|current_idx| self.moves[current_idx])
+        if !self.moves.is_empty() {
+            Some(self.moves[self.current_idx.unwrap_or(0)])
+        } else {
+            None
+        }
     }
 
     pub fn traverse_next(&mut self) -> Option<(PieceMove, Option<Piece>)> {
-        self.traverse(true)
+        if let Some(current_idx) = self.current_idx {
+            self.current_idx = Some(current_idx + 1);
+
+            if current_idx + 1 < self.moves.len() {
+                self.current_idx
+                    .map(|_| self.moves[self.current_idx.unwrap_or(0)])
+            } else {
+                None
+            }
+        } else {
+            // TODO
+            eprintln!("AHHHHHH");
+            self.current_idx = Some(0);
+            Some(self.moves[0])
+        }
+
+        // println!("{:?}", self.current_idx);
+        // Some(self.moves[0])
     }
 
     pub fn traverse_prev(&mut self) -> Option<(PieceMove, Option<Piece>)> {
@@ -193,21 +218,22 @@ impl PieceMoveHistory {
 
     fn traverse(&mut self, next: bool) -> Option<(PieceMove, Option<Piece>)> {
         if let Some(current_idx) = self.current_idx {
-            // if (next && current_idx < self.moves.len() - 1) || (!next && current_idx > 0) {
             self.current_idx = if next {
-                Some(current_idx + 1)
+                if current_idx + 1 < self.moves.len() {
+                    Some(current_idx + 1)
+                } else {
+                    println!("final thing");
+                    Some(current_idx)
+                }
             } else if current_idx > 0 {
                 Some(current_idx - 1)
             } else {
                 None
             };
 
-            // if current_idx == 0 && !next {
-            //     return Some(self.moves[0]);
-            // }
-
-            return self.current_idx.map(|current_idx| self.moves[current_idx]);
-            // }
+            return self
+                .current_idx
+                .map(|_| self.moves[self.current_idx.unwrap_or(0)]);
         } else if next {
             // TODO
             eprintln!("AHHHHHH");
@@ -217,7 +243,8 @@ impl PieceMoveHistory {
             eprintln!("AHHHHHH");
         }
 
-        None
+        println!("{:?}", self.current_idx);
+        Some(self.moves[0])
     }
 }
 
@@ -244,9 +271,10 @@ pub fn move_history_event_handler(
     mut move_history_ev: EventReader<MoveHistoryEvent>,
     mut board: ResMut<Board>,
     mut transform_query: Query<&mut Transform>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut background_ev: EventWriter<BackgroundColourEvent>,
+    // mut commands: Commands,
+    // asset_server: Res<AssetServer>,
+    // mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // // TODO THIS CODE IS REPEATED CODE, MOVE INTO FUNCTION
     // // Texture atlas for all the pieces
@@ -260,8 +288,10 @@ pub fn move_history_event_handler(
     // ));
 
     for ev in move_history_ev.read() {
+        println!("MoveHistory: {}", ev.backwards);
         // TODO Unwrap
         if let Some((mut piece_move, captured_piece)) = board.move_history.get() {
+            println!("true");
             // // if captured_piece.is_some() {
             // let piece_entity = match board.get_entity(piece_move.from) {
             //     Some(entity) => entity,
@@ -297,21 +327,47 @@ pub fn move_history_event_handler(
 
             let traversal_succeeded = if ev.backwards {
                 piece_move = piece_move.rev();
-                board.move_history.traverse_prev().is_some()
+                board.move_history.traverse_prev().is_some();
+
+                true
             } else {
                 board.move_history.traverse_next().is_some()
             };
 
             println!("{}", board.move_history);
 
-            // Move Entity
-            let mut transform = transform_query
-                .get_mut(board.get_entity(piece_move.from).unwrap())
-                .unwrap();
+            if traversal_succeeded {
+                let entity = match board.get_entity(piece_move.from) {
+                    Some(entity) => entity,
+                    None => {
+                        // // TODO THis is a fudge
+                        // if let Some(entity) = board.get_entity(piece_move.to) {
+                        //     entity
+                        // } else {
+                        eprintln!(
+                            "Entity not found: {}\t\t{:?}",
+                            piece_move,
+                            board.get_entity(piece_move.to)
+                        );
+                        panic!()
+                        // }
+                    }
+                };
 
-            let (x, y) = board_to_pixel_coords(piece_move.to.file, piece_move.to.rank);
-            transform.translation = Vec3::new(x, y, 1.);
-            board.move_piece(piece_move.with_show(false));
+                // Move Entity
+                let mut transform = transform_query.get_mut(entity).unwrap();
+
+                let (x, y) = board_to_pixel_coords(piece_move.to.file, piece_move.to.rank);
+                transform.translation = Vec3::new(x, y, 1.);
+                board.move_piece(piece_move.with_show(false));
+
+                // Change background colour to show current move
+                board.next_player();
+                background_ev.send(BackgroundColourEvent::new(match board.get_player() {
+                    Player::White => Color::rgb(1., 1., 1.),
+                    Player::Black => Color::rgb(0., 0., 0.),
+                }));
+            }
         }
     }
     // }
