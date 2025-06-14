@@ -84,11 +84,11 @@ pub fn piece_move_event_reader(
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
-        if !ev.piece_move.show {
-            board.move_piece(ev.piece_move);
+        // if !ev.piece_move.show {
+        //     board.move_piece(ev.piece_move);
 
-            continue;
-        }
+        //     continue;
+        // }
 
         // Entity Logic
         let mut piece_captured = false;
@@ -154,9 +154,7 @@ pub fn piece_move_event_reader(
                         }
                     }
 
-                    board
-                        .move_history
-                        .make_move(ev.piece_move, piece_captured.then_some(piece_moved_to));
+                    board.move_history.make_move(ev.piece_move, None);
                 } else {
                     board.move_history.increment_index();
                 }
@@ -254,13 +252,15 @@ impl PieceMoveHistory {
 
     pub fn traverse_prev(&mut self) -> Option<(PieceMove, Option<Piece>)> {
         if let Some(current_idx) = self.current_idx {
+            let piece_move = Some(self.moves[self.current_idx.unwrap_or(0)]);
+
             self.current_idx = if current_idx > 0 {
                 Some(current_idx - 1)
             } else {
                 None
             };
 
-            Some(self.moves[self.current_idx.map_or(0, |idx| idx + 1)])
+            piece_move
         } else {
             None
         }
@@ -330,23 +330,18 @@ pub fn move_history_event_handler(
                 piece_move
             };
 
-            // Create a piece for captured pieces which were taken on this move
-            if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
-                let entity = commands.spawn(PieceBundle::new(
-                    piece_move_original.to.into(),
-                    piece_to_spawn,
-                    texture.clone(),
-                    texture_atlas_layout.clone(),
-                ));
-
-                // println!("{:?}", board.get_entity(piece_move.from));
-
-                board.set_entity(piece_move.to, Some(entity.id()));
-                println!("{}", board.positions);
-                board.set_piece(piece_move.to, piece_to_spawn);
-                println!("{}\n", board.positions);
-            }
             if traversal_succeeded {
+                // TODO This is duplicated code
+                // Check if there is a piece at the new location
+                if !ev.backwards {
+                    let piece_moved_to = board.get_piece(piece_move.to);
+                    if piece_moved_to != Piece::None {
+                        let moved_to = board.get_entity(piece_move.to).unwrap();
+
+                        commands.entity(moved_to).despawn();
+                    }
+                }
+
                 let entity = match board.get_entity(piece_move.from) {
                     Some(entity) => entity,
                     None => {
@@ -366,6 +361,23 @@ pub fn move_history_event_handler(
                 let (x, y) = board_to_pixel_coords(piece_move.to.file, piece_move.to.rank);
                 transform.translation = Vec3::new(x, y, 1.);
                 board.move_piece(piece_move.with_show(false));
+
+                // Create a piece for captured pieces which were taken on this move
+                if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
+                    let entity = commands.spawn(PieceBundle::new(
+                        piece_move_original.to.into(),
+                        piece_to_spawn,
+                        texture.clone(),
+                        texture_atlas_layout.clone(),
+                    ));
+
+                    // println!("{:?}", board.get_entity(piece_move.from));
+
+                    println!("{}\n", board.positions);
+                    board.set_piece(piece_move.from, piece_to_spawn);
+                    board.set_entity(piece_move.from, Some(entity.id()));
+                    println!("{}\n\n", board.positions);
+                }
 
                 // Change background colour to show current move
                 board.next_player();
