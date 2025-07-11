@@ -30,27 +30,27 @@ pub enum Piece {
 }
 
 impl From<Piece> for usize {
-    fn from(value: Piece) -> usize {
-        value as usize - 1 - 2 * (value.is_black() as usize)
+    fn from(value: Piece) -> Self {
+        value as Self - 1 - 2 * Self::from(value.is_black())
     }
 }
 
 impl From<usize> for Piece {
-    fn from(value: usize) -> Piece {
+    fn from(value: usize) -> Self {
         match value {
-            0 => Piece::BQueen,
-            1 => Piece::BKing,
-            2 => Piece::BRook,
-            3 => Piece::BKnight,
-            4 => Piece::BBishop,
-            5 => Piece::BPawn,
-            8 => Piece::WQueen,
-            9 => Piece::WKing,
-            10 => Piece::WRook,
-            11 => Piece::WKnight,
-            12 => Piece::WBishop,
-            13 => Piece::WPawn,
-            _ => Piece::None,
+            0 => Self::BQueen,
+            1 => Self::BKing,
+            2 => Self::BRook,
+            3 => Self::BKnight,
+            4 => Self::BBishop,
+            5 => Self::BPawn,
+            8 => Self::WQueen,
+            9 => Self::WKing,
+            10 => Self::WRook,
+            11 => Self::WKnight,
+            12 => Self::WBishop,
+            13 => Self::WPawn,
+            _ => Self::None,
         }
     }
 }
@@ -71,34 +71,38 @@ pub const PIECES: &[Piece] = &[
 ];
 
 impl Piece {
+    #[must_use]
     pub fn is_white(self) -> bool {
-        ((self as u8 >> 3) & 1) == 1 && self != Piece::None
+        ((self as u8 >> 3) & 1) == 1 && self != Self::None
     }
 
+    #[must_use]
     pub fn is_black(self) -> bool {
-        ((self as u8 >> 3) & 1) == 0 && self != Piece::None
+        ((self as u8 >> 3) & 1) == 0 && self != Self::None
     }
 
-    pub fn to_player(self) -> Option<Player> {
+    #[must_use]
+    pub const fn to_player(self) -> Option<Player> {
         match self {
-            Piece::BQueen
-            | Piece::BKing
-            | Piece::BRook
-            | Piece::BKnight
-            | Piece::BBishop
-            | Piece::BPawn => Some(Player::Black),
+            Self::BQueen
+            | Self::BKing
+            | Self::BRook
+            | Self::BKnight
+            | Self::BBishop
+            | Self::BPawn => Some(Player::Black),
 
-            Piece::WQueen
-            | Piece::WKing
-            | Piece::WRook
-            | Piece::WKnight
-            | Piece::WBishop
-            | Piece::WPawn => Some(Player::White),
+            Self::WQueen
+            | Self::WKing
+            | Self::WRook
+            | Self::WKnight
+            | Self::WBishop
+            | Self::WPawn => Some(Player::White),
 
-            Piece::None => None,
+            Self::None => None,
         }
     }
 
+    #[must_use]
     pub fn is_player(self, player: Player) -> bool {
         match player {
             Player::White => self.is_white(),
@@ -106,6 +110,7 @@ impl Piece {
         }
     }
 
+    #[must_use]
     pub fn to_bitboard_index(&self) -> usize {
         // Will panic if Piece::None is used as an index
         PIECES
@@ -115,39 +120,41 @@ impl Piece {
             .unwrap()
     }
 
-    pub fn to_algebraic(&self) -> char {
+    #[must_use]
+    pub const fn to_algebraic(&self) -> char {
         match self {
-            Piece::None => '-',
-            Piece::WPawn => 'P',
-            Piece::WKnight => 'N',
-            Piece::WBishop => 'B',
-            Piece::WRook => 'R',
-            Piece::WQueen => 'Q',
-            Piece::WKing => 'K',
-            Piece::BPawn => 'p',
-            Piece::BKnight => 'n',
-            Piece::BBishop => 'b',
-            Piece::BRook => 'r',
-            Piece::BQueen => 'q',
-            Piece::BKing => 'k',
+            Self::None => '-',
+            Self::WPawn => 'P',
+            Self::WKnight => 'N',
+            Self::WBishop => 'B',
+            Self::WRook => 'R',
+            Self::WQueen => 'Q',
+            Self::WKing => 'K',
+            Self::BPawn => 'p',
+            Self::BKnight => 'n',
+            Self::BBishop => 'b',
+            Self::BRook => 'r',
+            Self::BQueen => 'q',
+            Self::BKing => 'k',
         }
     }
 
-    pub fn from_algebraic(chr: char) -> Option<Self> {
+    #[must_use]
+    pub const fn from_algebraic(chr: char) -> Option<Self> {
         match chr {
-            '-' => Some(Piece::None),
-            'P' => Some(Piece::WPawn),
-            'N' => Some(Piece::WKnight),
-            'B' => Some(Piece::WBishop),
-            'R' => Some(Piece::WRook),
-            'Q' => Some(Piece::WQueen),
-            'K' => Some(Piece::WKing),
-            'p' => Some(Piece::BPawn),
-            'n' => Some(Piece::BKnight),
-            'b' => Some(Piece::BBishop),
-            'r' => Some(Piece::BRook),
-            'q' => Some(Piece::BQueen),
-            'k' => Some(Piece::BKing),
+            '-' => Some(Self::None),
+            'P' => Some(Self::WPawn),
+            'N' => Some(Self::WKnight),
+            'B' => Some(Self::WBishop),
+            'R' => Some(Self::WRook),
+            'Q' => Some(Self::WQueen),
+            'K' => Some(Self::WKing),
+            'p' => Some(Self::BPawn),
+            'n' => Some(Self::BKnight),
+            'b' => Some(Self::BBishop),
+            'r' => Some(Self::BRook),
+            'q' => Some(Self::BQueen),
+            'k' => Some(Self::BKing),
             _ => None,
         }
     }
@@ -159,10 +166,12 @@ impl From<Piece> for char {
     }
 }
 
+// TODO Remove this
+#[allow(clippy::fallible_impl_from)]
 impl From<char> for Piece {
     fn from(val: char) -> Self {
         // TODO Stop the panic when incorrect letter is parsed
-        Piece::from_algebraic(val).unwrap()
+        Self::from_algebraic(val).unwrap()
     }
 }
 

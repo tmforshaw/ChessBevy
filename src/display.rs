@@ -12,6 +12,7 @@ pub const BOARD_SPACING: f32 = 0.;
 
 pub const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
+#[must_use]
 pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
     (
         (j as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
@@ -19,6 +20,7 @@ pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
     )
 }
 
+#[must_use]
 pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
     (
         (((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as usize)
@@ -28,6 +30,7 @@ pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
     )
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn display_board(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -90,7 +93,8 @@ pub struct BackgroundColourEvent {
 }
 
 impl BackgroundColourEvent {
-    pub fn new(colour: Color) -> Self {
+    #[must_use]
+    pub const fn new(colour: Color) -> Self {
         Self { colour }
     }
 }

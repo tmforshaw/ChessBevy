@@ -1,3 +1,13 @@
+// turn Clippy lints into hard errors
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bitboard::{bitboard_event_handler, BitBoardDisplayEvent};

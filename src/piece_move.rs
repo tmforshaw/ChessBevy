@@ -23,7 +23,8 @@ pub struct PieceMove {
 }
 
 impl PieceMove {
-    pub fn new(from: TilePos, to: TilePos) -> Self {
+    #[must_use]
+    pub const fn new(from: TilePos, to: TilePos) -> Self {
         Self {
             from,
             to,
@@ -31,7 +32,8 @@ impl PieceMove {
         }
     }
 
-    pub fn new_unshown(from: TilePos, to: TilePos) -> Self {
+    #[must_use]
+    pub const fn new_unshown(from: TilePos, to: TilePos) -> Self {
         Self {
             from,
             to,
@@ -39,7 +41,8 @@ impl PieceMove {
         }
     }
 
-    pub fn with_show(&self, show: bool) -> Self {
+    #[must_use]
+    pub const fn with_show(&self, show: bool) -> Self {
         Self {
             from: self.from,
             to: self.to,
@@ -47,11 +50,16 @@ impl PieceMove {
         }
     }
 
-    pub fn to_algebraic(&self) -> String {
-        format!("{} {}", self.from.to_algebraic(), self.to.to_algebraic())
+    pub fn to_algebraic(&self) -> Result<String, std::num::TryFromIntError> {
+        Ok(format!(
+            "{} {}",
+            self.from.to_algebraic()?,
+            self.to.to_algebraic()?
+        ))
     }
 
-    pub fn rev(&self) -> Self {
+    #[must_use]
+    pub const fn rev(&self) -> Self {
         Self {
             from: self.to,
             to: self.from,
@@ -145,7 +153,9 @@ pub fn piece_move_event_reader(
                 //     piece_captured.then_some(piece_moved_to),
                 // );
 
-                if !same_as_history_move {
+                if same_as_history_move {
+                    board.move_history.increment_index();
+                } else {
                     if let Some((_, captured_piece)) = board.move_history.get_mut() {
                         if piece_captured {
                             captured_piece.replace(piece_moved_to);
@@ -155,8 +165,6 @@ pub fn piece_move_event_reader(
                     }
 
                     board.move_history.make_move(ev.piece_move, None);
-                } else {
-                    board.move_history.increment_index();
                 }
 
                 // Change background colour to show current move
@@ -182,7 +190,8 @@ pub struct PieceMoveHistory {
 }
 
 impl PieceMoveHistory {
-    pub fn new(moves: Vec<(PieceMove, Option<Piece>)>, current_idx: Option<usize>) -> Self {
+    #[must_use]
+    pub const fn new(moves: Vec<(PieceMove, Option<Piece>)>, current_idx: Option<usize>) -> Self {
         Self { moves, current_idx }
     }
 
@@ -196,16 +205,14 @@ impl PieceMoveHistory {
                 }
             }
 
-            self.current_idx = if let Some(current_idx) = self.current_idx {
-                Some(current_idx + 1)
-            } else {
-                Some(0)
-            };
+            self.current_idx = self
+                .current_idx
+                .map_or(Some(0), |current_idx| Some(current_idx + 1));
             self.moves.push((piece_move, captured_piece));
         }
     }
 
-    pub fn increment_index(&mut self) {
+    pub const fn increment_index(&mut self) {
         self.current_idx = Some(match self.current_idx {
             Some(idx) if idx < self.moves.len() => idx + 1,
             Some(idx) => idx,
@@ -218,20 +225,21 @@ impl PieceMoveHistory {
         self.current_idx = (!self.moves.is_empty()).then_some(self.moves.len() - 1);
     }
 
+    #[must_use]
     pub fn get(&self) -> Option<(PieceMove, Option<Piece>)> {
-        if !self.moves.is_empty() {
-            Some(self.moves[self.current_idx.unwrap_or(0)])
-        } else {
+        if self.moves.is_empty() {
             None
+        } else {
+            Some(self.moves[self.current_idx.unwrap_or(0)])
         }
     }
 
     pub fn get_mut(&mut self) -> Option<(&mut PieceMove, &mut Option<Piece>)> {
-        if !self.moves.is_empty() {
+        if self.moves.is_empty() {
+            None
+        } else {
             let history_move = &mut self.moves[self.current_idx.unwrap_or(0)];
             Some((&mut history_move.0, &mut history_move.1))
-        } else {
-            None
         }
     }
 
@@ -271,8 +279,12 @@ impl fmt::Display for PieceMoveHistory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut message = String::new();
 
-        for piece_move in self.moves.iter() {
-            message += format!("{}    ", piece_move.0.to_algebraic()).as_str();
+        for piece_move in &self.moves {
+            let Ok(algebraic) = piece_move.0.to_algebraic() else {
+                return Err(fmt::Error);
+            };
+
+            message += format!("{algebraic}    ").as_str();
         }
 
         message += format!("\t\tCurrent Index: {:?}", self.current_idx).as_str();
@@ -286,6 +298,7 @@ pub struct MoveHistoryEvent {
     pub backwards: bool,
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn move_history_event_handler(
     mut move_history_ev: EventReader<MoveHistoryEvent>,
     mut board: ResMut<Board>,
@@ -342,17 +355,14 @@ pub fn move_history_event_handler(
                     }
                 }
 
-                let entity = match board.get_entity(piece_move.from) {
-                    Some(entity) => entity,
-                    None => {
-                        eprintln!(
-                            "Entity not found: {}\t\t{:?}\t\t{:?}",
-                            piece_move,
-                            board.get_entity(piece_move.from),
-                            board.move_history.current_idx
-                        );
-                        panic!()
-                    }
+                let Some(entity) = board.get_entity(piece_move.from) else {
+                    eprintln!(
+                        "Entity not found: {}\t\t{:?}\t\t{:?}",
+                        piece_move,
+                        board.get_entity(piece_move.from),
+                        board.move_history.current_idx
+                    );
+                    panic!()
                 };
 
                 // Move Entity

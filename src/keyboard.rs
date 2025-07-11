@@ -14,14 +14,7 @@ pub fn keyboard_event_handler(
     mut ev_move_history: EventWriter<MoveHistoryEvent>,
 ) {
     for ev in ev_keyboard.read() {
-        if !ev.state.is_pressed() {
-            match ev.key_code {
-                KeyCode::ShiftLeft | KeyCode::ShiftRight => {
-                    keyboard_state.shift_pressed = false;
-                }
-                _ => {}
-            }
-        } else {
+        if ev.state.is_pressed() {
             if ev.key_code == KeyCode::ShiftLeft || ev.key_code == KeyCode::ShiftRight {
                 keyboard_state.shift_pressed = true;
             }
@@ -97,6 +90,13 @@ pub fn keyboard_event_handler(
             }
             if ev.key_code == KeyCode::ArrowRight {
                 ev_move_history.send(MoveHistoryEvent { backwards: false });
+            }
+        } else {
+            match ev.key_code {
+                KeyCode::ShiftLeft | KeyCode::ShiftRight => {
+                    keyboard_state.shift_pressed = false;
+                }
+                _ => {}
             }
         }
     }

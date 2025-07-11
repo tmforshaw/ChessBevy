@@ -15,6 +15,7 @@ pub struct PossibleMoveDisplayEvent {
 #[derive(Component)]
 pub struct PossibleMoveMarker;
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn possible_move_event_handler(
     mut ev_display: EventReader<PossibleMoveDisplayEvent>,
     possible_move_entities: Query<Entity, With<PossibleMoveMarker>>,
@@ -48,6 +49,8 @@ pub fn possible_move_event_handler(
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
+#[must_use]
 pub fn get_possible_moves(board: Board, from: TilePos) -> Vec<TilePos> {
     let piece = board.get_piece(from);
 
@@ -59,9 +62,10 @@ pub fn get_possible_moves(board: Board, from: TilePos) -> Vec<TilePos> {
         Piece::BBishop | Piece::WBishop => Board::get_diagonal_moves,
         Piece::BPawn | Piece::WPawn => Board::get_pawn_moves,
         Piece::None => {
-            fn no_moves(_: &Board, _: TilePos) -> Vec<TilePos> {
+            const fn no_moves(_: &Board, _: TilePos) -> Vec<TilePos> {
                 Vec::new()
             }
+
             no_moves
         }
     })(&board, from)

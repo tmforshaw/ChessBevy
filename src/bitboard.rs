@@ -18,24 +18,27 @@ pub struct BitBoard {
 
 #[allow(dead_code)]
 impl BitBoard {
-    pub fn get_bit(&self, index: usize) -> bool {
+    #[must_use]
+    pub const fn get_bit(&self, index: usize) -> bool {
         (self.bits >> index) & 1 == 1
     }
 
-    pub fn get_bit_at(&self, tile_pos: TilePos) -> bool {
+    #[must_use]
+    pub const fn get_bit_at(&self, tile_pos: TilePos) -> bool {
         (self.bits >> (tile_pos.file * BOARD_SIZE + tile_pos.rank)) & 1 == 1
     }
 
-    pub fn set_bit(&mut self, index: usize, value: bool) {
+    pub const fn set_bit(&mut self, index: usize, value: bool) {
         // Clear the bit, then set it
         self.bits &= !(1 << index);
         self.bits |= (value as u64) << index;
     }
 
-    pub fn set_bit_at(&mut self, tile_pos: TilePos, value: bool) {
+    pub const fn set_bit_at(&mut self, tile_pos: TilePos, value: bool) {
         self.set_bit(tile_pos.file * BOARD_SIZE + tile_pos.rank, value);
     }
 
+    #[must_use]
     pub fn get_positions(&self) -> Vec<TilePos> {
         let mut positions = Vec::new();
 
@@ -48,7 +51,7 @@ impl BitBoard {
                 }
 
                 if (bits & 1) > 0 {
-                    positions.push(TilePos::new(i, j))
+                    positions.push(TilePos::new(i, j));
                 }
 
                 bits >>= 1;
@@ -58,15 +61,15 @@ impl BitBoard {
         positions
     }
 
-    pub fn set_file(&mut self, file: usize, file_value: u8) {
+    pub const fn set_file(&mut self, file: usize, file_value: u8) {
         // Clear file, then set bits
         self.bits &= !(0xFF << (file * BOARD_SIZE));
         self.bits |= (file_value as u64) << (file * BOARD_SIZE);
     }
 
-    pub fn set_rank(&mut self, rank: usize, rank_value: u8) {
+    pub const fn set_rank(&mut self, rank: usize, rank_value: u8) {
         // Clear rank, then set each bit by spacing out the rank_value bits by (BOARD_SIZE - 1) many zeros
-        self.bits &= !(0x0101010101010101 << rank);
+        self.bits &= !(0x0101_0101_0101_0101 << rank);
         self.bits |= ((rank_value as u64) & 1) << rank
             | ((rank_value as u64) & (1 << 1)) << (BOARD_SIZE - 1 + rank)
             | ((rank_value as u64) & (1 << 2)) << (2 * (BOARD_SIZE - 1) + rank)
@@ -139,7 +142,7 @@ impl Display for BitBoards {
 
                 let piece_char = Into::<char>::into(piece);
 
-                message += format!("{} ", piece_char).as_str();
+                message += format!("{piece_char} ").as_str();
             }
 
             if i > 0 {
@@ -179,7 +182,8 @@ pub struct BitBoardDisplayEvent {
 }
 
 impl BitBoardDisplayEvent {
-    pub fn new(board_type: Option<Piece>, clear: bool, show: bool) -> Self {
+    #[must_use]
+    pub const fn new(board_type: Option<Piece>, clear: bool, show: bool) -> Self {
         Self {
             board_type,
             clear,
@@ -191,6 +195,7 @@ impl BitBoardDisplayEvent {
 #[derive(Component)]
 pub struct BitBoardMarker;
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn bitboard_event_handler(
     mut ev_display: EventReader<BitBoardDisplayEvent>,
     board: Res<Board>,
