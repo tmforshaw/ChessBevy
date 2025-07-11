@@ -363,20 +363,22 @@ pub fn move_history_event_handler(
                 board.move_piece(piece_move.with_show(false));
 
                 // Create a piece for captured pieces which were taken on this move
-                if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
-                    let entity = commands.spawn(PieceBundle::new(
-                        piece_move_original.to.into(),
-                        piece_to_spawn,
-                        texture.clone(),
-                        texture_atlas_layout.clone(),
-                    ));
+                if ev.backwards {
+                    if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
+                        let entity = commands.spawn(PieceBundle::new(
+                            piece_move_original.to.into(),
+                            piece_to_spawn,
+                            texture.clone(),
+                            texture_atlas_layout.clone(),
+                        ));
 
-                    // println!("{:?}", board.get_entity(piece_move.from));
+                        // println!("{:?}", board.get_entity(piece_move.from));
 
-                    println!("{}\n", board.positions);
-                    board.set_piece(piece_move.from, piece_to_spawn);
-                    board.set_entity(piece_move.from, Some(entity.id()));
-                    println!("{}\n\n", board.positions);
+                        println!("{}\n", board.positions);
+                        board.set_piece(piece_move.from, piece_to_spawn);
+                        board.set_entity(piece_move.from, Some(entity.id()));
+                        println!("{}\n\n", board.positions);
+                    }
                 }
 
                 // Change background colour to show current move
