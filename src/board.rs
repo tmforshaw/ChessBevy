@@ -187,6 +187,11 @@ impl Board {
         let moved_entity = self.get_entity(piece_move.from);
         self.set_entity(piece_move.from, None);
         self.set_entity(piece_move.to, moved_entity);
+
+        // // Reset the en passant tile
+        // if self.en_passant_on_last_move.is_some() {
+        //     self.en_passant_on_last_move = None;
+        // }
     }
 
     #[must_use]
@@ -277,17 +282,17 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_orthogonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_orthogonal_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         self.get_moves_in_dir(from, vec![(1, 0), (0, 1), (-1, 0), (0, -1)])
     }
 
     #[must_use]
-    pub fn get_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_diagonal_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         self.get_moves_in_dir(from, vec![(1, 1), (1, -1), (-1, 1), (-1, -1)])
     }
 
     #[must_use]
-    pub fn get_ortho_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_ortho_diagonal_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         let mut positions = self.get_orthogonal_moves(from);
         positions.append(&mut self.get_diagonal_moves(from));
 
@@ -295,7 +300,7 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_knight_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_knight_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         let mut positions = Vec::new();
 
         let file_isize = isize::try_from(from.file).unwrap();
@@ -329,7 +334,7 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_king_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_king_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         let mut positions = Vec::new();
 
         let file_isize = isize::try_from(from.file).unwrap();
@@ -364,7 +369,7 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_pawn_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_pawn_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         let piece = self.get_piece(from);
         let vertical_dir = isize::from(piece.is_white()) * 2 - 1;
 
@@ -406,6 +411,17 @@ impl Board {
             }
         }
 
+        // En passant
+        if let Some(passant_tile) = self.en_passant_on_last_move {
+            let file_diff = passant_tile.file as isize - file_isize;
+            let rank_diff = passant_tile.rank as isize - rank_isize;
+
+            // Is able to take the en passant square
+            if file_diff.abs() == 1 && rank_diff.abs() == vertical_dir {
+                positions.push(passant_tile);
+            }
+        }
+
         // Double Vertical Move
         if (piece.is_white() && from.file == 1) || (piece.is_black() && from.file == BOARD_SIZE - 2)
         {
@@ -416,7 +432,17 @@ impl Board {
             if self.get_piece(new_pos) == Piece::None {
                 positions.push(new_pos);
             }
+
+            let en_passant_tile = TilePos::new(
+                usize::try_from(file_isize + vertical_dir).unwrap(),
+                from.rank,
+            );
+
+            // println!("{en_passant_tile:?}\t\t{new_pos:?}");
+
+            self.en_passant_on_last_move = Some(en_passant_tile);
         }
+
         positions
     }
 }

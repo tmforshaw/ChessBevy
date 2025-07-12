@@ -20,11 +20,11 @@ pub fn possible_move_event_handler(
     mut ev_display: EventReader<PossibleMoveDisplayEvent>,
     possible_move_entities: Query<Entity, With<PossibleMoveMarker>>,
     mut commands: Commands,
-    board: Res<Board>,
+    mut board: ResMut<Board>,
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            let positions = get_possible_moves(board.clone(), ev.from);
+            let positions = get_possible_moves(&mut board, ev.from);
             for pos in positions {
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
@@ -51,7 +51,7 @@ pub fn possible_move_event_handler(
 
 #[allow(clippy::needless_pass_by_value)]
 #[must_use]
-pub fn get_possible_moves(board: Board, from: TilePos) -> Vec<TilePos> {
+pub fn get_possible_moves(board: &mut Board, from: TilePos) -> Vec<TilePos> {
     let piece = board.get_piece(from);
 
     (match piece {
@@ -62,11 +62,11 @@ pub fn get_possible_moves(board: Board, from: TilePos) -> Vec<TilePos> {
         Piece::BBishop | Piece::WBishop => Board::get_diagonal_moves,
         Piece::BPawn | Piece::WPawn => Board::get_pawn_moves,
         Piece::None => {
-            const fn no_moves(_: &Board, _: TilePos) -> Vec<TilePos> {
+            const fn no_moves(_: &mut Board, _: TilePos) -> Vec<TilePos> {
                 Vec::new()
             }
 
             no_moves
         }
-    })(&board, from)
+    })(board, from)
 }

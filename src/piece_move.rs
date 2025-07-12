@@ -19,6 +19,7 @@ pub struct PieceMoveEvent {
 pub struct PieceMove {
     pub from: TilePos,
     pub to: TilePos,
+    pub en_passant: Option<TilePos>,
     pub show: bool,
 }
 
@@ -28,6 +29,7 @@ impl PieceMove {
         Self {
             from,
             to,
+            en_passant: None,
             show: true,
         }
     }
@@ -37,6 +39,7 @@ impl PieceMove {
         Self {
             from,
             to,
+            en_passant: None,
             show: false,
         }
     }
@@ -46,7 +49,18 @@ impl PieceMove {
         Self {
             from: self.from,
             to: self.to,
+            en_passant: self.en_passant,
             show,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_en_passant(&self, en_passant: Option<TilePos>) -> Self {
+        Self {
+            from: self.from,
+            to: self.to,
+            en_passant,
+            show: self.show,
         }
     }
 
@@ -63,6 +77,7 @@ impl PieceMove {
         Self {
             from: self.to,
             to: self.from,
+            en_passant: self.en_passant,
             show: self.show,
         }
     }
@@ -109,7 +124,7 @@ pub fn piece_move_event_reader(
             // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
             let (x, y) = if !moved_to.is_player(board.player)
                 && board.get_piece(ev.piece_move.from).is_player(board.player)
-                && get_possible_moves(board.clone(), ev.piece_move.from).contains(&ev.piece_move.to)
+                && get_possible_moves(&mut board, ev.piece_move.from).contains(&ev.piece_move.to)
             {
                 // Need to capture
                 if moved_to != Piece::None {
@@ -272,6 +287,16 @@ impl PieceMoveHistory {
         } else {
             None
         }
+    }
+
+    pub fn peek_prev(&self) -> Option<(PieceMove, Option<Piece>)> {
+        if let Some(current_idx) = self.current_idx {
+            if current_idx > 0 {
+                return Some(self.moves[current_idx - 1]);
+            }
+        }
+
+        None
     }
 }
 
