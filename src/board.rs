@@ -67,7 +67,7 @@ pub struct Board {
     pub positions: BitBoards,
     pub player: Player,
     castling_rights: [(bool, bool); COLOUR_AMT],
-    en_passant_on_last_move: Option<TilePos>,
+    pub en_passant_on_last_move: Option<TilePos>,
     pub half_move_counter: usize,
     pub full_move_counter: usize,
     entities: [[Option<Entity>; BOARD_SIZE]; BOARD_SIZE],
@@ -371,7 +371,7 @@ impl Board {
     #[must_use]
     pub fn get_pawn_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         let piece = self.get_piece(from);
-        let vertical_dir = isize::from(piece.is_white()) * 2 - 1;
+        let vertical_dir = Board::get_vertical_dir(piece);
 
         let file_isize = isize::try_from(from.file).unwrap();
         let rank_isize = isize::try_from(from.rank).unwrap();
@@ -423,8 +423,7 @@ impl Board {
         }
 
         // Double Vertical Move
-        if (piece.is_white() && from.file == 1) || (piece.is_black() && from.file == BOARD_SIZE - 2)
-        {
+        if Self::double_pawn_move_check(piece, from) {
             let new_pos = TilePos::new(
                 usize::try_from(file_isize + 2 * vertical_dir).unwrap(),
                 from.rank,
@@ -433,16 +432,24 @@ impl Board {
                 positions.push(new_pos);
             }
 
-            let en_passant_tile = TilePos::new(
-                usize::try_from(file_isize + vertical_dir).unwrap(),
-                from.rank,
-            );
+            // let en_passant_tile = TilePos::new(
+            //     usize::try_from(file_isize + vertical_dir).unwrap(),
+            //     from.rank,
+            // );
 
             // println!("{en_passant_tile:?}\t\t{new_pos:?}");
 
-            self.en_passant_on_last_move = Some(en_passant_tile);
+            // self.en_passant_on_last_move = Some(en_passant_tile);
         }
 
         positions
+    }
+
+    pub fn double_pawn_move_check(piece: Piece, from: TilePos) -> bool {
+        (piece.is_white() && from.file == 1) || (piece.is_black() && from.file == BOARD_SIZE - 2)
+    }
+
+    pub fn get_vertical_dir(piece: Piece) -> isize {
+        isize::from(piece.is_white()) * 2 - 1
     }
 }

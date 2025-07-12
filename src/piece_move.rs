@@ -168,6 +168,24 @@ pub fn piece_move_event_reader(
                 //     piece_captured.then_some(piece_moved_to),
                 // );
 
+                let moved_piece = board.get_piece(ev.piece_move.from);
+                let en_passant_tile = TilePos::new(
+                    usize::try_from(
+                        isize::try_from(ev.piece_move.from.file).unwrap()
+                            + Board::get_vertical_dir(moved_piece),
+                    )
+                    .unwrap(),
+                    ev.piece_move.from.rank,
+                );
+
+                // Check if this move allows en passant on the next move
+                if Board::double_pawn_move_check(moved_piece, ev.piece_move.from) {
+                    println!("Double pawn move!!!!");
+
+                    // self.en_passant_on_last_move = Some(en_passant_tile);
+                    board.en_passant_on_last_move = Some(en_passant_tile)
+                }
+
                 if same_as_history_move {
                     board.move_history.increment_index();
                 } else {
@@ -179,7 +197,10 @@ pub fn piece_move_event_reader(
                         }
                     }
 
-                    board.move_history.make_move(ev.piece_move, None);
+                    let en_passant = board.en_passant_on_last_move;
+                    board
+                        .move_history
+                        .make_move(ev.piece_move.with_en_passant(en_passant), None);
                 }
 
                 // Change background colour to show current move
