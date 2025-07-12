@@ -107,13 +107,6 @@ pub fn piece_move_event_reader(
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
-        println!("{:?}", board.move_history);
-        // if !ev.piece_move.show {
-        //     board.move_piece(ev.piece_move);
-
-        //     continue;
-        // }
-
         // Entity Logic
         let mut piece_captured = false;
         let move_complete;
@@ -162,24 +155,19 @@ pub fn piece_move_event_reader(
                     false
                 };
 
-                // println!(
-                //     "{:?}\t\t{:?}",
-                //     board.move_history.get(),
-                //     piece_captured.then_some(piece_moved_to),
-                // );
-
                 let moved_piece = board.get_piece(ev.piece_move.from);
-                let en_passant_tile = TilePos::new(
-                    ev.piece_move.to.file,
-                    usize::try_from(
-                        isize::try_from(ev.piece_move.from.rank).unwrap()
-                            + Board::get_vertical_dir(moved_piece),
-                    )
-                    .unwrap(),
-                );
 
                 // Check if this move allows en passant on the next move
                 if Board::double_pawn_move_check(moved_piece, ev.piece_move.from) {
+                    let en_passant_tile = TilePos::new(
+                        ev.piece_move.to.file,
+                        usize::try_from(
+                            isize::try_from(ev.piece_move.from.rank).unwrap()
+                                + Board::get_vertical_dir(moved_piece),
+                        )
+                        .unwrap(),
+                    );
+
                     board.en_passant_on_last_move = Some(en_passant_tile);
                 }
 
@@ -206,12 +194,9 @@ pub fn piece_move_event_reader(
                     Player::White => Color::rgb(1., 1., 1.),
                     Player::Black => Color::rgb(0., 0., 0.),
                 }));
-
-                println!("{:?}", board.move_history);
             }
-            board.move_piece(ev.piece_move);
 
-            // println!("{}", board.clone());
+            board.move_piece(ev.piece_move);
         }
     }
 }
@@ -417,10 +402,6 @@ pub fn move_history_event_handler(
                 // Create a piece for captured pieces which were taken on this move
                 if ev.backwards {
                     if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
-                        // assert!(
-                        //     piece_to_spawn != Piece::None,
-                        //     "Ppppppp:None used as bitboard index"
-                        // );
                         let entity = commands.spawn(PieceBundle::new(
                             piece_move_original.to.into(),
                             piece_to_spawn,
