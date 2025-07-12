@@ -181,28 +181,7 @@ pub fn piece_move_event_reader(
 
                 // Check if this move allows en passant on the next move
                 if Board::double_pawn_move_check(moved_piece, ev.piece_move.from) {
-                    println!("Double pawn move!!!!");
-
-                    // self.en_passant_on_last_move = Some(en_passant_tile);
                     board.en_passant_on_last_move = Some(en_passant_tile);
-
-                    // Should not replace a piece which was moved to (should be impossible)
-                    println!("{piece_captured}\t\t{piece_moved_to:?}");
-                    assert!(piece_moved_to == Piece::None);
-
-                    // TODO This breaks the implementation since it tries to use the wrong tile as the captured piece
-                    // piece_moved_to = board.get_piece(TilePos::new(
-                    //     ev.piece_move.to.file,
-                    //     usize::try_from(
-                    //         isize::try_from(ev.piece_move.from.rank).unwrap()
-                    //             + Board::get_vertical_dir(moved_piece),
-                    //     )
-                    //     .unwrap(),
-                    // ));
-
-                    // piece_captured = true;
-
-                    println!("NEW: {piece_captured}\t\t{piece_moved_to:?}");
                 }
 
                 if same_as_history_move {
