@@ -61,25 +61,24 @@ impl BitBoard {
         positions
     }
 
-    // TODO
-    // pub const fn set_rank(&mut self, rank: usize, rank_value: u8) {
-    //     // Clear rank, then set bits
-    //     self.bits &= !(0xFF << (rank * BOARD_SIZE));
-    //     self.bits |= (rank_value as u64) << (rank * BOARD_SIZE);
-    // }
+    pub const fn set_rank(&mut self, rank: usize, rank_value: u8) {
+        // Clear rank, then set bits
+        self.bits &= !(0xFF << (rank * BOARD_SIZE));
+        self.bits |= (rank_value as u64) << (rank * BOARD_SIZE);
+    }
 
-    // pub const fn set_file(&mut self, file: usize, file_value: u8) {
-    //     // Clear file, then set each bit by spacing out the file_value bits by (BOARD_SIZE - 1) many zeros
-    //     self.bits &= !(0x0101_0101_0101_0101 << file);
-    //     self.bits |= ((file_value as u64) & 1) << file
-    //         | ((file_value as u64) & (1 << 1)) << (BOARD_SIZE - 1 + file)
-    //         | ((file_value as u64) & (1 << 2)) << (2 * (BOARD_SIZE - 1) + file)
-    //         | ((file_value as u64) & (1 << 3)) << (3 * (BOARD_SIZE - 1) + file)
-    //         | ((file_value as u64) & (1 << 4)) << (4 * (BOARD_SIZE - 1) + file)
-    //         | ((file_value as u64) & (1 << 5)) << (5 * (BOARD_SIZE - 1) + file)
-    //         | ((file_value as u64) & (1 << 6)) << (6 * (BOARD_SIZE - 1) + file)
-    //         | ((file_value as u64) & (1 << 7)) << (7 * (BOARD_SIZE - 1) + file);
-    // }
+    pub const fn set_file(&mut self, file: usize, file_value: u8) {
+        // Clear file, then set each bit by spacing out the file_value bits by (BOARD_SIZE - 1) many zeros
+        self.bits &= !(0x0101_0101_0101_0101 << file);
+        self.bits |= ((file_value as u64) & 1) << file
+            | ((file_value as u64) & (1 << 1)) << (BOARD_SIZE - 1 + file)
+            | ((file_value as u64) & (1 << 2)) << (2 * (BOARD_SIZE - 1) + file)
+            | ((file_value as u64) & (1 << 3)) << (3 * (BOARD_SIZE - 1) + file)
+            | ((file_value as u64) & (1 << 4)) << (4 * (BOARD_SIZE - 1) + file)
+            | ((file_value as u64) & (1 << 5)) << (5 * (BOARD_SIZE - 1) + file)
+            | ((file_value as u64) & (1 << 6)) << (6 * (BOARD_SIZE - 1) + file)
+            | ((file_value as u64) & (1 << 7)) << (7 * (BOARD_SIZE - 1) + file);
+    }
 }
 
 impl fmt::Display for BitBoard {

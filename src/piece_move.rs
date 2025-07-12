@@ -148,13 +148,12 @@ pub fn piece_move_event_reader(
         // Board Logic
         if (move_complete && ev.piece_move.show) || (!move_complete && !ev.piece_move.show) {
             if ev.piece_move.show {
-                let mut piece_moved_to = if piece_captured {
+                let piece_moved_to = if piece_captured {
                     board.get_piece(ev.piece_move.to)
                 } else {
                     Piece::None
                 };
 
-                // TODO could check for if move matches history here
                 let same_as_history_move = if let Some((history_move, _)) = board.move_history.get()
                 {
                     // Made Different Move to history
@@ -230,7 +229,6 @@ impl PieceMoveHistory {
     }
 
     pub fn make_move(&mut self, piece_move: PieceMove, captured_piece: Option<Piece>) {
-        // TODO Clear depending on if move matches history (when current_idx was not at final part of history)
         if piece_move.show {
             // Clear depending on where current_idx is
             if let Some(current_idx) = self.current_idx {

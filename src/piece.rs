@@ -166,7 +166,7 @@ impl From<Piece> for char {
     }
 }
 
-// TODO Remove this
+// TODO Remove this lint
 #[allow(clippy::fallible_impl_from)]
 impl From<char> for Piece {
     fn from(val: char) -> Self {
