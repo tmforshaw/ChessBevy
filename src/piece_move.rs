@@ -107,42 +107,44 @@ pub fn piece_move_event_reader(
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
+        let mut piece_move = ev.piece_move;
+
         // Entity Logic
         let mut piece_captured = false;
         let move_complete;
         {
             let mut transform = transform_query.get_mut(ev.entity).unwrap();
 
-            let moved_to = board.get_piece(ev.piece_move.to);
+            let moved_to = board.get_piece(piece_move.to);
 
             // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
             let (x, y) = if !moved_to.is_player(board.player)
-                && board.get_piece(ev.piece_move.from).is_player(board.player)
-                && get_possible_moves(&mut board, ev.piece_move.from).contains(&ev.piece_move.to)
+                && board.get_piece(piece_move.from).is_player(board.player)
+                && get_possible_moves(&mut board, piece_move.from).contains(&piece_move.to)
             {
                 // Need to capture
                 if moved_to != Piece::None {
                     piece_captured = true;
-                    let moved_to = board.get_entity(ev.piece_move.to).unwrap();
+                    let captured_entity = board.get_entity(piece_move.to).unwrap();
 
-                    commands.entity(moved_to).despawn();
+                    commands.entity(captured_entity).despawn();
                 }
 
                 move_complete = true;
-                board_to_pixel_coords(ev.piece_move.to.file, ev.piece_move.to.rank)
+                board_to_pixel_coords(piece_move.to.file, piece_move.to.rank)
             } else {
                 // Reset position
                 move_complete = false;
-                board_to_pixel_coords(ev.piece_move.from.file, ev.piece_move.from.rank)
+                board_to_pixel_coords(piece_move.from.file, piece_move.from.rank)
             };
             transform.translation = Vec3::new(x, y, 1.);
         }
 
         // Board Logic
-        if (move_complete && ev.piece_move.show) || (!move_complete && !ev.piece_move.show) {
-            if ev.piece_move.show {
-                let piece_moved_to = if piece_captured {
-                    board.get_piece(ev.piece_move.to)
+        if (move_complete && piece_move.show) || (!move_complete && !piece_move.show) {
+            if piece_move.show {
+                let mut piece_moved_to = if piece_captured {
+                    board.get_piece(piece_move.to)
                 } else {
                     Piece::None
                 };
@@ -150,19 +152,50 @@ pub fn piece_move_event_reader(
                 let same_as_history_move = if let Some((history_move, _)) = board.move_history.get()
                 {
                     // Made Different Move to history
-                    history_move == ev.piece_move
+                    history_move == piece_move
                 } else {
                     false
                 };
 
-                let moved_piece = board.get_piece(ev.piece_move.from);
+                let moved_piece = board.get_piece(piece_move.from);
+
+                // Check if piece moved to the en passant tile
+                if let Some(en_passant) = board.en_passant_on_last_move {
+                    if en_passant == piece_move.to {
+                        // Get the captured piece type from the Board
+                        let captured_piece_pos = TilePos::new(
+                            piece_move.to.file,
+                            piece_move.from.rank, // The rank which the piece moved from is the same as the piece it will capture
+                        );
+                        let captured_piece = board.get_piece(captured_piece_pos);
+
+                        println!("En passant capture {captured_piece:?}");
+
+                        // // Mark that there was a piece captured via en passant
+                        // piece_captured = true;
+                        // piece_move = piece_move.with_en_passant(Some(en_passant));
+
+                        // // Delete the piece at the captured tile
+                        // let captured_entity = board.get_entity(captured_piece_pos).unwrap();
+                        // commands.entity(captured_entity).despawn();
+                        // board.set_piece(captured_piece_pos, Piece::None);
+
+                        // // Should never fail
+                        // assert!(
+                        //     piece_moved_to == Piece::None,
+                        //     "Piece moved to was not empty when trying to overwrite with en passant"
+                        // );
+
+                        // piece_moved_to = captured_piece;
+                    }
+                }
 
                 // Check if this move allows en passant on the next move
-                if Board::double_pawn_move_check(moved_piece, ev.piece_move.from) {
+                if Board::double_pawn_move_check(moved_piece, piece_move.from) {
                     let en_passant_tile = TilePos::new(
-                        ev.piece_move.to.file,
+                        piece_move.to.file,
                         usize::try_from(
-                            isize::try_from(ev.piece_move.from.rank).unwrap()
+                            isize::try_from(piece_move.from.rank).unwrap()
                                 + Board::get_vertical_dir(moved_piece),
                         )
                         .unwrap(),
@@ -182,10 +215,7 @@ pub fn piece_move_event_reader(
                         }
                     }
 
-                    let en_passant = board.en_passant_on_last_move;
-                    board
-                        .move_history
-                        .make_move(ev.piece_move.with_en_passant(en_passant), None);
+                    board.move_history.make_move(piece_move, None);
                 }
 
                 // Change background colour to show current move
@@ -196,7 +226,7 @@ pub fn piece_move_event_reader(
                 }));
             }
 
-            board.move_piece(ev.piece_move);
+            board.move_piece(piece_move);
         }
     }
 }

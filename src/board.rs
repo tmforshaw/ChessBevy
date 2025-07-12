@@ -194,11 +194,6 @@ impl Board {
         let moved_entity = self.get_entity(piece_move.from);
         self.set_entity(piece_move.from, None);
         self.set_entity(piece_move.to, moved_entity);
-
-        // // Reset the en passant tile
-        // if self.en_passant_on_last_move.is_some() {
-        //     self.en_passant_on_last_move = None;
-        // }
     }
 
     #[must_use]
