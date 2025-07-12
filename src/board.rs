@@ -5,8 +5,9 @@ use bevy::prelude::*;
 use crate::{
     bitboard::BitBoards,
     display::BOARD_SIZE,
+    move_history::PieceMoveHistory,
     piece::{Piece, COLOUR_AMT, PIECES},
-    piece_move::{PieceMove, PieceMoveHistory},
+    piece_move::PieceMove,
 };
 
 #[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]

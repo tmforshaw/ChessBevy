@@ -1,6 +1,6 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
-use crate::{bitboard::BitBoardDisplayEvent, piece::Piece, piece_move::MoveHistoryEvent};
+use crate::{bitboard::BitBoardDisplayEvent, move_history::MoveHistoryEvent, piece::Piece};
 
 #[derive(Resource, Clone, Default)]
 pub struct KeyboardState {

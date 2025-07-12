@@ -107,7 +107,7 @@ pub fn piece_move_event_reader(
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
-        let mut piece_move = ev.piece_move;
+        let piece_move = ev.piece_move;
 
         // Entity Logic
         let mut piece_captured = false;
@@ -143,7 +143,7 @@ pub fn piece_move_event_reader(
         // Board Logic
         if (move_complete && piece_move.show) || (!move_complete && !piece_move.show) {
             if piece_move.show {
-                let mut piece_moved_to = if piece_captured {
+                let piece_moved_to = if piece_captured {
                     board.get_piece(piece_move.to)
                 } else {
                     Piece::None
