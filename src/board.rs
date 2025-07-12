@@ -424,7 +424,7 @@ impl Board {
             let rank_diff = passant_tile.rank as isize - rank_isize;
 
             // Is able to take the en passant square
-            if file_diff == vertical_dir && rank_diff.abs() == 1 {
+            if file_diff.abs() == 1 && rank_diff == vertical_dir {
                 positions.push(passant_tile);
             }
         }
