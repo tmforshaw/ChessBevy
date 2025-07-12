@@ -107,6 +107,7 @@ pub fn piece_move_event_reader(
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
+        println!("{:?}", board.move_history);
         // if !ev.piece_move.show {
         //     board.move_piece(ev.piece_move);
 
@@ -147,7 +148,7 @@ pub fn piece_move_event_reader(
         // Board Logic
         if (move_complete && ev.piece_move.show) || (!move_complete && !ev.piece_move.show) {
             if ev.piece_move.show {
-                let piece_moved_to = if piece_captured {
+                let mut piece_moved_to = if piece_captured {
                     board.get_piece(ev.piece_move.to)
                 } else {
                     Piece::None
@@ -170,12 +171,12 @@ pub fn piece_move_event_reader(
 
                 let moved_piece = board.get_piece(ev.piece_move.from);
                 let en_passant_tile = TilePos::new(
+                    ev.piece_move.to.file,
                     usize::try_from(
-                        isize::try_from(ev.piece_move.from.file).unwrap()
+                        isize::try_from(ev.piece_move.from.rank).unwrap()
                             + Board::get_vertical_dir(moved_piece),
                     )
                     .unwrap(),
-                    ev.piece_move.from.rank,
                 );
 
                 // Check if this move allows en passant on the next move
@@ -183,7 +184,25 @@ pub fn piece_move_event_reader(
                     println!("Double pawn move!!!!");
 
                     // self.en_passant_on_last_move = Some(en_passant_tile);
-                    board.en_passant_on_last_move = Some(en_passant_tile)
+                    board.en_passant_on_last_move = Some(en_passant_tile);
+
+                    // Should not replace a piece which was moved to (should be impossible)
+                    println!("{piece_captured}\t\t{piece_moved_to:?}");
+                    assert!(piece_moved_to == Piece::None);
+
+                    // TODO This breaks the implementation since it tries to use the wrong tile as the captured piece
+                    // piece_moved_to = board.get_piece(TilePos::new(
+                    //     ev.piece_move.to.file,
+                    //     usize::try_from(
+                    //         isize::try_from(ev.piece_move.from.rank).unwrap()
+                    //             + Board::get_vertical_dir(moved_piece),
+                    //     )
+                    //     .unwrap(),
+                    // ));
+
+                    // piece_captured = true;
+
+                    println!("NEW: {piece_captured}\t\t{piece_moved_to:?}");
                 }
 
                 if same_as_history_move {
@@ -210,7 +229,7 @@ pub fn piece_move_event_reader(
                     Player::Black => Color::rgb(0., 0., 0.),
                 }));
 
-                // println!("{}", board.move_history);
+                println!("{:?}", board.move_history);
             }
             board.move_piece(ev.piece_move);
 
@@ -421,6 +440,10 @@ pub fn move_history_event_handler(
                 // Create a piece for captured pieces which were taken on this move
                 if ev.backwards {
                     if let Some((_, Some(piece_to_spawn))) = board.move_history.get() {
+                        // assert!(
+                        //     piece_to_spawn != Piece::None,
+                        //     "Ppppppp:None used as bitboard index"
+                        // );
                         let entity = commands.spawn(PieceBundle::new(
                             piece_move_original.to.into(),
                             piece_to_spawn,

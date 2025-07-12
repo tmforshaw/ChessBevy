@@ -13,19 +13,19 @@ pub const BOARD_SPACING: f32 = 0.;
 pub const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
 #[must_use]
-pub fn board_to_pixel_coords(i: usize, j: usize) -> (f32, f32) {
+pub fn board_to_pixel_coords(file: usize, rank: usize) -> (f32, f32) {
     (
-        (j as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
-        (i as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
+        (file as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
+        (rank as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
     )
 }
 
 #[must_use]
 pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
     (
-        (((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as usize)
-            .clamp(0, BOARD_SIZE - 1),
         (((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as usize)
+            .clamp(0, BOARD_SIZE - 1),
+        (((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as usize)
             .clamp(0, BOARD_SIZE - 1),
     )
 }
@@ -38,15 +38,15 @@ pub fn display_board(
     mut board: ResMut<Board>,
 ) {
     // Spawn Board Squares
-    for i in 0..BOARD_SIZE {
-        for j in 0..BOARD_SIZE {
-            let (x, y) = board_to_pixel_coords(i, j);
+    for rank in 0..BOARD_SIZE {
+        for file in 0..BOARD_SIZE {
+            let (x, y) = board_to_pixel_coords(file, rank);
 
             // Create a board with alternating light and dark squares
             // Starting with a light square on A1 (Bottom Left for White)
             commands.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: if (i + j) % 2 == 0 {
+                    color: if (file + rank) % 2 == 0 {
                         Color::WHITE
                     } else {
                         Color::PURPLE
@@ -71,8 +71,8 @@ pub fn display_board(
     ));
 
     // Spawn all the pieces where they are in the board.tiles array
-    for file in 0..BOARD_SIZE {
-        for rank in 0..BOARD_SIZE {
+    for rank in 0..BOARD_SIZE {
+        for file in 0..BOARD_SIZE {
             if board.get_piece(TilePos::new(file, rank)) != Piece::None {
                 let entity = commands.spawn(PieceBundle::new(
                     (file, rank),

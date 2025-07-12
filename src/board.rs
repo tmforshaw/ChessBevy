@@ -77,6 +77,7 @@ pub struct Board {
 impl Default for Board {
     fn default() -> Self {
         const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
 
         Self::from_fen(DEFAULT_FEN).unwrap()
     }
@@ -113,18 +114,18 @@ impl Board {
                 // Read positions from FEN
                 0 => match chr {
                     '/' => {
-                        file += 1;
-                        rank = 0;
+                        file = 0;
+                        rank += 1;
                     }
-                    '1'..='8' => rank += (chr as u8 - b'0') as usize,
+                    '1'..='8' => file += (chr as u8 - b'0') as usize,
                     ' ' => section_index += 1,
                     _ => {
                         if let Some(piece) = Piece::from_algebraic(chr) {
-                            let tile_pos = TilePos::new(BOARD_SIZE - 1 - file, rank);
+                            let tile_pos = TilePos::new(file, BOARD_SIZE - 1 - rank); // Count from the bottom (need to flip rank)
                             board.set_piece(tile_pos, piece);
                             board.positions[piece].set_bit_at(tile_pos, true);
 
-                            rank += 1;
+                            file += 1;
                         } else {
                             return Err(format!("Could not create board using FEN string [{fen}]:\n'{chr}' is not algebraic notation for any piece"));
                         }
@@ -155,20 +156,26 @@ impl Board {
                 3 => match chr {
                     '-' => board.en_passant_on_last_move = None,
                     ' ' => section_index += 1,
-                    _ => {
-                        let algebraic_en_passant =
-                            fen.chars().skip(chr_index - 1).take(2).collect::<Vec<_>>();
+                    c => {
+                        if !c.is_ascii_digit() {
+                            let algebraic_en_passant =
+                                fen.chars().skip(chr_index).take(2).collect::<Vec<_>>();
 
-                        match (algebraic_en_passant[0], algebraic_en_passant[1]) {
-                            ('a'..='h', '0'..='8') => {
-                                board.en_passant_on_last_move = Some(TilePos::new(
-                                    (algebraic_en_passant[0] as u8 - b'a') as usize,
-                                    (algebraic_en_passant[1] as u8 - b'0') as usize,
-                                ));
+                            // chr_index += 1;
+
+                            match (algebraic_en_passant[0], algebraic_en_passant[1]) {
+                                ('a'..='h', '0'..='8') => {
+                                    board.en_passant_on_last_move = Some(TilePos::new(
+                                        (algebraic_en_passant[0] as u8 - b'a') as usize,
+                                        (algebraic_en_passant[1] as u8 - b'0') as usize,
+                                    ));
+                                }
+                                _ => {
+                                    return Err(format!("Could not create board using FEN string [{fen}]:\n\"{}{}\" is not a valid en passant square", algebraic_en_passant[0], algebraic_en_passant[1]));
+                                }
                             }
-                            _ => {
-                                return Err(format!("Could not create board using FEN string [{fen}]:\n\"{}{}\" is not a valid en passant square", algebraic_en_passant[0], algebraic_en_passant[1]));
-                            }
+
+                            println!("{:?}", board.en_passant_on_last_move);
                         }
                     }
                 },
@@ -380,12 +387,12 @@ impl Board {
         let mut positions = Vec::new();
 
         // Single Move Vertically and Diagonal Captures
-        let new_vertical_pos = file_isize + vertical_dir;
+        let new_vertical_pos = rank_isize + vertical_dir;
         if new_vertical_pos > 0 && new_vertical_pos < board_size_isize {
             // Single Move Vertically
             let new_pos = TilePos::new(
-                usize::try_from(file_isize + vertical_dir).unwrap(),
-                from.rank,
+                from.file,
+                usize::try_from(rank_isize + vertical_dir).unwrap(),
             );
             if self.get_piece(new_pos) == Piece::None {
                 positions.push(new_pos);
@@ -393,11 +400,11 @@ impl Board {
 
             // Diagonal Captures
             for k in [-1, 1] {
-                let new_horizontal_pos = rank_isize + k;
+                let new_horizontal_pos = file_isize + k;
 
                 let new_pos = TilePos::new(
-                    usize::try_from(new_vertical_pos).unwrap(),
                     usize::try_from(new_horizontal_pos).unwrap(),
+                    usize::try_from(new_vertical_pos).unwrap(),
                 );
                 if new_horizontal_pos > 0 && new_horizontal_pos < board_size_isize {
                     if let Some(player) = piece.to_player() {
@@ -417,7 +424,7 @@ impl Board {
             let rank_diff = passant_tile.rank as isize - rank_isize;
 
             // Is able to take the en passant square
-            if file_diff.abs() == 1 && rank_diff.abs() == vertical_dir {
+            if file_diff == vertical_dir && rank_diff.abs() == 1 {
                 positions.push(passant_tile);
             }
         }
@@ -425,28 +432,19 @@ impl Board {
         // Double Vertical Move
         if Self::double_pawn_move_check(piece, from) {
             let new_pos = TilePos::new(
-                usize::try_from(file_isize + 2 * vertical_dir).unwrap(),
-                from.rank,
+                from.file,
+                usize::try_from(rank_isize + 2 * vertical_dir).unwrap(),
             );
             if self.get_piece(new_pos) == Piece::None {
                 positions.push(new_pos);
             }
-
-            // let en_passant_tile = TilePos::new(
-            //     usize::try_from(file_isize + vertical_dir).unwrap(),
-            //     from.rank,
-            // );
-
-            // println!("{en_passant_tile:?}\t\t{new_pos:?}");
-
-            // self.en_passant_on_last_move = Some(en_passant_tile);
         }
 
         positions
     }
 
     pub fn double_pawn_move_check(piece: Piece, from: TilePos) -> bool {
-        (piece.is_white() && from.file == 1) || (piece.is_black() && from.file == BOARD_SIZE - 2)
+        (piece.is_white() && from.rank == 1) || (piece.is_black() && from.rank == BOARD_SIZE - 2)
     }
 
     pub fn get_vertical_dir(piece: Piece) -> isize {

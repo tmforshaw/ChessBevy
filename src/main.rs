@@ -45,7 +45,7 @@ fn main() {
                 .build(),
             DefaultPickingPlugins,
         ))
-        // .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
+        .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
         .init_resource::<Board>()
         .init_resource::<KeyboardState>()
         .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))

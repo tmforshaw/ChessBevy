@@ -84,6 +84,13 @@ pub fn keyboard_event_handler(
                     true,
                 ));
             }
+            if ev.key_code == KeyCode::KeyQ {
+                ev_display_event.send(BitBoardDisplayEvent::new(
+                    None,
+                    keyboard_state.shift_pressed,
+                    true,
+                ));
+            }
 
             if ev.key_code == KeyCode::ArrowLeft {
                 ev_move_history.send(MoveHistoryEvent { backwards: true });

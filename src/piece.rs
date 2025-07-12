@@ -185,12 +185,13 @@ pub struct PieceBundle {
 
 impl PieceBundle {
     pub fn new(
-        (i, j): (usize, usize),
+        (file, rank): (usize, usize),
         key: Piece,
         texture: Handle<Image>,
         texture_atlas_layout: Handle<TextureAtlasLayout>,
     ) -> Self {
-        let (x, y) = board_to_pixel_coords(i, j);
+        assert!(key != Piece::None, "{key:?} used as bitboard index");
+        let (x, y) = board_to_pixel_coords(file, rank);
 
         // Create a bundle with this piece's spritesheet and some listeners for picking up the pieces
         Self {
