@@ -372,7 +372,7 @@ impl Board {
     #[must_use]
     pub fn get_pawn_moves(&mut self, from: TilePos) -> Vec<TilePos> {
         let piece = self.get_piece(from);
-        let vertical_dir = Board::get_vertical_dir(piece);
+        let vertical_dir = Self::get_vertical_dir(piece);
 
         let file_isize = isize::try_from(from.file).unwrap();
         let rank_isize = isize::try_from(from.rank).unwrap();
@@ -414,8 +414,8 @@ impl Board {
 
         // En passant
         if let Some(passant_tile) = self.en_passant_on_last_move {
-            let file_diff = passant_tile.file as isize - file_isize;
-            let rank_diff = passant_tile.rank as isize - rank_isize;
+            let file_diff = isize::try_from(passant_tile.file).unwrap() - file_isize;
+            let rank_diff = isize::try_from(passant_tile.rank).unwrap() - rank_isize;
 
             // Is able to take the en passant square
             if file_diff.abs() == 1 && rank_diff == vertical_dir {
@@ -437,10 +437,12 @@ impl Board {
         positions
     }
 
+    #[must_use]
     pub fn double_pawn_move_check(piece: Piece, from: TilePos) -> bool {
         (piece.is_white() && from.rank == 1) || (piece.is_black() && from.rank == BOARD_SIZE - 2)
     }
 
+    #[must_use]
     pub fn get_vertical_dir(piece: Piece) -> isize {
         isize::from(piece.is_white()) * 2 - 1
     }

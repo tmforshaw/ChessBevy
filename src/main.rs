@@ -1,11 +1,13 @@
-// #![warn(clippy::all)]
-// #![warn(clippy::pedantic)]
-// #![warn(clippy::nursery)]
-// #![allow(clippy::cast_precision_loss)]
-// #![allow(clippy::cast_possible_truncation)]
-// #![allow(clippy::cast_sign_loss)]
-// #![allow(clippy::missing_errors_doc)]
-// #![allow(clippy::missing_panics_doc)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::option_if_let_else)]
 
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;

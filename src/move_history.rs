@@ -4,12 +4,9 @@ use thiserror::Error;
 use std::fmt;
 
 use crate::{
-    board::{Board, Player, TilePos},
-    display::{
-        board_to_pixel_coords, get_texture_atlas, BackgroundColourEvent, PIECE_SIZE_IMG,
-        PIECE_TEXTURE_FILE,
-    },
-    piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
+    board::{Board, TilePos},
+    display::{board_to_pixel_coords, get_texture_atlas, BackgroundColourEvent},
+    piece::{Piece, PieceBundle},
     piece_move::PieceMove,
 };
 
@@ -219,7 +216,6 @@ pub fn move_history_event_handler(
             if let Some(captured_piece) = captured_piece {
                 let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
                     // En passant capture
-
                     TilePos::new(piece_move_original.to.file, piece_move_original.from.rank)
                 } else {
                     // Normal capture

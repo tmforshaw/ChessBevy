@@ -3,7 +3,7 @@ use std::fmt;
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, Player, TilePos},
+    board::{Board, TilePos},
     display::{board_to_pixel_coords, BackgroundColourEvent},
     piece::Piece,
     possible_moves::get_possible_moves,
@@ -156,7 +156,7 @@ pub fn piece_move_event_reader(
                 let moved_piece = board.get_piece(piece_move.from);
 
                 // Check if piece moved to the en passant tile
-                let en_passant_capture = if let Some(en_passant) = board.en_passant_on_last_move {
+                let _en_passant_capture = if let Some(en_passant) = board.en_passant_on_last_move {
                     if en_passant == piece_move.to {
                         // Get the captured piece type from the Board
                         let captured_piece_pos = TilePos::new(
@@ -197,7 +197,10 @@ pub fn piece_move_event_reader(
 
                 // Check if this move allows en passant on the next move
                 if Board::double_pawn_move_check(moved_piece, piece_move.from)
-                    && (piece_move.from.rank as isize - piece_move.to.rank as isize).abs() == 2
+                    && (isize::try_from(piece_move.from.rank).unwrap()
+                        - isize::try_from(piece_move.to.rank).unwrap())
+                    .abs()
+                        == 2
                 {
                     let en_passant_tile = TilePos::new(
                         piece_move.to.file,
