@@ -245,7 +245,11 @@ pub fn move_history_event_handler(
 
         // TODO Need to set the en passant marker on each turn
         // Set the en_passant marker
-        board.en_passant_on_last_move = en_passant_tile;
+        board.en_passant_on_last_move = if piece_move.en_passant_capture && !ev.backwards {
+            None
+        } else {
+            en_passant_tile
+        };
 
         let Some(piece_entity) = board.get_entity(piece_move.from) else {
             eprintln!(
