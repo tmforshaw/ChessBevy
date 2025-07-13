@@ -117,12 +117,10 @@ pub fn piece_move_event_reader(
         let mut piece_captured = false;
         let move_complete;
         {
-            let mut transform = transform_query.get_mut(ev.entity).unwrap();
-
             let moved_to = board.get_piece(piece_move.to);
 
             // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
-            let (x, y) = if !moved_to.is_player(board.player)
+            let pos = if !moved_to.is_player(board.player)
                 && board.get_piece(piece_move.from).is_player(board.player)
                 && get_possible_moves(&mut board, piece_move.from).contains(&piece_move.to)
             {
@@ -135,13 +133,14 @@ pub fn piece_move_event_reader(
                 }
 
                 move_complete = true;
-                board_to_pixel_coords(piece_move.to.file, piece_move.to.rank)
+                piece_move.to
             } else {
                 // Reset position
                 move_complete = false;
-                board_to_pixel_coords(piece_move.from.file, piece_move.from.rank)
+                piece_move.from
             };
-            transform.translation = Vec3::new(x, y, 1.);
+
+            translate_piece_entity(ev.entity, pos, &mut transform_query);
         }
 
         // Board Logic
@@ -233,4 +232,14 @@ pub fn piece_move_event_reader(
             board.move_piece(piece_move);
         }
     }
+}
+
+pub fn translate_piece_entity(
+    piece_entity: Entity,
+    pos: TilePos,
+    transform_query: &mut Query<&mut Transform>,
+) {
+    let mut transform = transform_query.get_mut(piece_entity).unwrap();
+    let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+    transform.translation = Vec3::new(x, y, 1.);
 }

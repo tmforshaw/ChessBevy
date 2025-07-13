@@ -5,9 +5,9 @@ use std::fmt;
 
 use crate::{
     board::{Board, TilePos},
-    display::{board_to_pixel_coords, get_texture_atlas, BackgroundColourEvent},
+    display::{get_texture_atlas, BackgroundColourEvent},
     piece::{Piece, PieceBundle},
-    piece_move::PieceMove,
+    piece_move::{translate_piece_entity, PieceMove},
 };
 
 #[derive(Error, Debug)]
@@ -243,7 +243,6 @@ pub fn move_history_event_handler(
             piece_move_original
         };
 
-        // TODO Need to set the en passant marker on each turn
         // Set the en_passant marker
         board.en_passant_on_last_move = if piece_move.en_passant_capture && !ev.backwards {
             None
@@ -262,10 +261,7 @@ pub fn move_history_event_handler(
         };
 
         // Move Entity
-        let mut transform = transform_query.get_mut(piece_entity).unwrap();
-
-        let (x, y) = board_to_pixel_coords(piece_move.to.file, piece_move.to.rank);
-        transform.translation = Vec3::new(x, y, 1.);
+        translate_piece_entity(piece_entity, piece_move.to, &mut transform_query);
 
         // Only create a piece for a captured piece when undo-ing moves
         if ev.backwards {
