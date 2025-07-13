@@ -4,7 +4,7 @@ use thiserror::Error;
 use std::fmt;
 
 use crate::{
-    board::{Board, Player},
+    board::{Board, Player, TilePos},
     display::{board_to_pixel_coords, BackgroundColourEvent, PIECE_SIZE_IMG, PIECE_TEXTURE_FILE},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
     piece_move::PieceMove,
@@ -218,37 +218,41 @@ pub fn move_history_event_handler(
             board.move_piece(piece_move.with_show(false));
 
             if let Some(captured_piece) = captured_piece {
-                if let Some(_en_passant) = piece_move.en_passant {
-                    // Capture was an en passant
-                    todo!()
+                let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
+                    // En passant capture
+                    TilePos::new(piece_move_original.to.file, piece_move_original.from.rank)
                 } else {
                     // Normal capture
+                    piece_move_original.to
+                };
 
-                    // Create new entity for the captured piece
-                    let captured_entity = commands.spawn(PieceBundle::new(
-                        piece_move_original.to.into(),
-                        captured_piece,
-                        texture.clone(),
-                        texture_atlas_layout.clone(),
-                    ));
+                // Create new entity for the captured piece
+                let captured_entity = commands.spawn(PieceBundle::new(
+                    captured_piece_tile.into(),
+                    captured_piece,
+                    texture.clone(),
+                    texture_atlas_layout.clone(),
+                ));
 
-                    // Update the board to make it aware of the spawned piece
-                    board.set_piece(piece_move_original.to, captured_piece);
-                    board.set_entity(piece_move_original.to, Some(captured_entity.id()));
-                }
+                // Update the board to make it aware of the spawned piece
+                board.set_piece(captured_piece_tile, captured_piece);
+                board.set_entity(captured_piece_tile, Some(captured_entity.id()));
             }
         } else {
             // Need to delete captured pieces on redo
             if let Some(_captured_piece) = captured_piece {
-                if let Some(_en_passant) = piece_move.en_passant {
-                    todo!()
+                let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
+                    // En passant capture
+                    TilePos::new(piece_move.to.file, piece_move.from.rank)
                 } else {
                     // Normal capture
-                    if let Some(captured_entity) = board.get_entity(piece_move.to) {
-                        // Despawn the entity which was captured on this turn (Don't need to modify bitboards since board.move_piece will overwrite it anyway)
-                        commands.entity(captured_entity).despawn();
-                        board.set_entity(piece_move.to, None);
-                    }
+                    piece_move.to
+                };
+
+                if let Some(captured_entity) = board.get_entity(captured_piece_tile) {
+                    // Despawn the entity which was captured on this turn (Don't need to modify bitboards since board.move_piece will overwrite it anyway)
+                    commands.entity(captured_entity).despawn();
+                    board.set_entity(captured_piece_tile, None);
                 }
             }
 

@@ -199,7 +199,6 @@ pub fn piece_move_event_reader(
                 if Board::double_pawn_move_check(moved_piece, piece_move.from)
                     && (piece_move.from.rank as isize - piece_move.to.rank as isize).abs() == 2
                 {
-                    println!("double pawn!!!!");
                     let en_passant_tile = TilePos::new(
                         piece_move.to.file,
                         usize::try_from(
