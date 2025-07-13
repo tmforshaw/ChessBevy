@@ -19,7 +19,7 @@ pub struct PieceMoveEvent {
 pub struct PieceMove {
     pub from: TilePos,
     pub to: TilePos,
-    pub en_passant: Option<TilePos>,
+    pub en_passant_capture: bool,
     pub show: bool,
 }
 
@@ -29,7 +29,7 @@ impl PieceMove {
         Self {
             from,
             to,
-            en_passant: None,
+            en_passant_capture: false,
             show: true,
         }
     }
@@ -39,7 +39,7 @@ impl PieceMove {
         Self {
             from,
             to,
-            en_passant: None,
+            en_passant_capture: false,
             show: false,
         }
     }
@@ -49,17 +49,17 @@ impl PieceMove {
         Self {
             from: self.from,
             to: self.to,
-            en_passant: self.en_passant,
+            en_passant_capture: self.en_passant_capture,
             show,
         }
     }
 
     #[must_use]
-    pub const fn with_en_passant(&self, en_passant: Option<TilePos>) -> Self {
+    pub const fn is_en_passant_capture(&self) -> Self {
         Self {
             from: self.from,
             to: self.to,
-            en_passant,
+            en_passant_capture: true,
             show: self.show,
         }
     }
@@ -77,7 +77,7 @@ impl PieceMove {
         Self {
             from: self.to,
             to: self.from,
-            en_passant: self.en_passant,
+            en_passant_capture: self.en_passant_capture,
             show: self.show,
         }
     }
@@ -88,7 +88,7 @@ impl std::fmt::Debug for PieceMove {
         write!(
             f,
             "{{from: {}, to: {}, show: {}, en_passant: {:?}}}",
-            self.from, self.to, self.show, self.en_passant
+            self.from, self.to, self.show, self.en_passant_capture
         )
     }
 }
@@ -98,7 +98,7 @@ impl std::fmt::Display for PieceMove {
         write!(
             f,
             "{{{}, {}, {}, {:?}}}",
-            self.from, self.to, self.show, self.en_passant
+            self.from, self.to, self.show, self.en_passant_capture
         )
     }
 }
@@ -169,7 +169,7 @@ pub fn piece_move_event_reader(
 
                         // Mark that there was a piece captured via en passant
                         piece_captured = true;
-                        piece_move = piece_move.with_en_passant(Some(en_passant));
+                        piece_move = piece_move.is_en_passant_capture();
 
                         // Delete the piece at the captured tile
                         let captured_entity = board.get_entity(captured_piece_pos).unwrap();
@@ -192,7 +192,8 @@ pub fn piece_move_event_reader(
                     None
                 };
 
-                // Clear the en_passant marker
+                // Clear the en_passant marker, caching it for use in the history_move.make_move() function
+                let en_passant_tile = board.en_passant_on_last_move;
                 board.en_passant_on_last_move = None;
 
                 // Check if this move allows en passant on the next move
@@ -220,7 +221,9 @@ pub fn piece_move_event_reader(
                     None
                 };
 
-                board.move_history.make_move(piece_move, captured_piece);
+                board
+                    .move_history
+                    .make_move(piece_move, captured_piece, en_passant_tile);
 
                 // Change background colour to show current move
                 board.next_player();

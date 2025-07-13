@@ -16,29 +16,82 @@ pub enum MoveHistoryError {
     IndexNotChanged,
 }
 
+#[derive(Clone, Debug, Copy)]
+pub struct HistoryMove {
+    piece_move: PieceMove,
+    captured_piece: Option<Piece>,
+    en_passant_tile: Option<TilePos>,
+}
+
+impl HistoryMove {
+    #[must_use]
+    pub const fn new(
+        piece_move: PieceMove,
+        captured_piece: Option<Piece>,
+        en_passant_tile: Option<TilePos>,
+    ) -> Self {
+        Self {
+            piece_move,
+            captured_piece,
+            en_passant_tile,
+        }
+    }
+}
+
+impl From<(PieceMove, Option<Piece>, Option<TilePos>)> for HistoryMove {
+    fn from(value: (PieceMove, Option<Piece>, Option<TilePos>)) -> Self {
+        Self {
+            piece_move: value.0,
+            captured_piece: value.1,
+            en_passant_tile: value.2,
+        }
+    }
+}
+
+impl From<HistoryMove> for (PieceMove, Option<Piece>, Option<TilePos>) {
+    fn from(value: HistoryMove) -> Self {
+        (
+            value.piece_move,
+            value.captured_piece,
+            value.en_passant_tile,
+        )
+    }
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct PieceMoveHistory {
-    moves: Vec<(PieceMove, Option<Piece>)>,
+    moves: Vec<HistoryMove>,
     current_idx: Option<usize>,
 }
 
 impl PieceMoveHistory {
     #[must_use]
-    pub const fn new(moves: Vec<(PieceMove, Option<Piece>)>, current_idx: Option<usize>) -> Self {
+    pub const fn new(moves: Vec<HistoryMove>, current_idx: Option<usize>) -> Self {
         Self { moves, current_idx }
     }
 
-    pub fn make_move(&mut self, piece_move: PieceMove, captured_piece: Option<Piece>) {
+    pub fn make_move(
+        &mut self,
+        piece_move: PieceMove,
+        captured_piece: Option<Piece>,
+        en_passant_tile: Option<TilePos>,
+    ) {
         if piece_move.show {
             // Clear history depending on where current_idx is (if the move is different from the history)
             if let Some(current_idx) = self.current_idx {
                 // If the suggested move is different to the current move in history, and is not the last move in the history
-                if piece_move != self.moves[current_idx].0 && current_idx + 1 < self.moves.len() {
+                if piece_move != self.moves[current_idx].piece_move
+                    && current_idx + 1 < self.moves.len()
+                {
                     self.clear_excess_moves();
                 }
             }
 
-            self.moves.push((piece_move, captured_piece));
+            self.moves.push(HistoryMove::new(
+                piece_move,
+                captured_piece,
+                en_passant_tile,
+            ));
             let _ = self.increment_index();
         }
     }
@@ -91,7 +144,7 @@ impl PieceMoveHistory {
     }
 
     #[must_use]
-    pub fn get(&self) -> Option<(PieceMove, Option<Piece>)> {
+    pub fn get(&self) -> Option<HistoryMove> {
         if self.moves.is_empty() {
             None
         } else {
@@ -99,16 +152,15 @@ impl PieceMoveHistory {
         }
     }
 
-    pub fn get_mut(&mut self) -> Option<(&mut PieceMove, &mut Option<Piece>)> {
+    pub fn get_mut(&mut self) -> Option<&mut HistoryMove> {
         if self.moves.is_empty() {
             None
         } else {
-            let history_move = &mut self.moves[self.current_idx.unwrap_or(0)];
-            Some((&mut history_move.0, &mut history_move.1))
+            Some(&mut self.moves[self.current_idx.unwrap_or(0)])
         }
     }
 
-    pub fn traverse_next(&mut self) -> Option<(PieceMove, Option<Piece>)> {
+    pub fn traverse_next(&mut self) -> Option<HistoryMove> {
         if !self.moves.is_empty() {
             // Increment index and if it was changed, return the move at the new index
             if self.increment_index().is_ok() {
@@ -119,7 +171,7 @@ impl PieceMoveHistory {
         None
     }
 
-    pub fn traverse_prev(&mut self) -> Option<(PieceMove, Option<Piece>)> {
+    pub fn traverse_prev(&mut self) -> Option<HistoryMove> {
         if !self.moves.is_empty() {
             let history_move = self.moves[self.current_idx.unwrap_or(0)];
 
@@ -136,8 +188,9 @@ impl fmt::Display for PieceMoveHistory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut message = String::new();
 
-        for piece_move in &self.moves {
-            let Ok(algebraic) = piece_move.0.to_algebraic() else {
+        // TODO Print out other parts of HistoryMove
+        for history_move in &self.moves {
+            let Ok(algebraic) = history_move.piece_move.to_algebraic() else {
                 return Err(fmt::Error);
             };
 
@@ -176,10 +229,12 @@ pub fn move_history_event_handler(
             board.move_history.traverse_next()
         };
 
-        let Some((piece_move_original, captured_piece)) = piece_move_history else {
+        let Some(history_move) = piece_move_history else {
             // History is empty, or index went out of bounds (Don't perform any moves)
             return;
         };
+
+        let (piece_move_original, captured_piece, en_passant_tile) = history_move.into();
 
         // Undo
         let piece_move = if ev.backwards {
@@ -188,9 +243,9 @@ pub fn move_history_event_handler(
             piece_move_original
         };
 
-        // // TODO Need to set the en passant marker on each turn
-        // // Set the en_passant marker
-        // board.en_passant_on_last_move = piece_move.en_passant;
+        // TODO Need to set the en passant marker on each turn
+        // Set the en_passant marker
+        board.en_passant_on_last_move = en_passant_tile;
 
         let Some(piece_entity) = board.get_entity(piece_move.from) else {
             eprintln!(
@@ -214,7 +269,7 @@ pub fn move_history_event_handler(
             board.move_piece(piece_move.with_show(false));
 
             if let Some(captured_piece) = captured_piece {
-                let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
+                let captured_piece_tile = if piece_move.en_passant_capture {
                     // En passant capture
                     TilePos::new(piece_move_original.to.file, piece_move_original.from.rank)
                 } else {
@@ -237,7 +292,7 @@ pub fn move_history_event_handler(
         } else {
             // Need to delete captured pieces on redo
             if let Some(_captured_piece) = captured_piece {
-                let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
+                let captured_piece_tile = if piece_move.en_passant_capture {
                     // En passant capture
 
                     TilePos::new(piece_move.to.file, piece_move.from.rank)
