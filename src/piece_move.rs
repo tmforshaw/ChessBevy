@@ -87,15 +87,19 @@ impl std::fmt::Debug for PieceMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{from: {}, to: {}, show: {}}}",
-            self.from, self.to, self.show
+            "{{from: {}, to: {}, show: {}, en_passant: {:?}}}",
+            self.from, self.to, self.show, self.en_passant
         )
     }
 }
 
 impl std::fmt::Display for PieceMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{{}, {}, {}}}", self.from, self.to, self.show)
+        write!(
+            f,
+            "{{{}, {}, {}, {:?}}}",
+            self.from, self.to, self.show, self.en_passant
+        )
     }
 }
 
@@ -107,7 +111,7 @@ pub fn piece_move_event_reader(
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     for ev in ev_piece_move.read() {
-        let piece_move = ev.piece_move;
+        let mut piece_move = ev.piece_move;
 
         // Entity Logic
         let mut piece_captured = false;
@@ -143,19 +147,19 @@ pub fn piece_move_event_reader(
         // Board Logic
         if (move_complete && piece_move.show) || (!move_complete && !piece_move.show) {
             if piece_move.show {
-                let piece_moved_to = if piece_captured {
+                let mut piece_moved_to = if piece_captured {
                     board.get_piece(piece_move.to)
                 } else {
                     Piece::None
                 };
 
-                let same_as_history_move = if let Some((history_move, _)) = board.move_history.get()
-                {
-                    // Made Different Move to history
-                    history_move == piece_move
-                } else {
-                    false
-                };
+                // let same_as_history_move = if let Some((history_move, _)) = board.move_history.get()
+                // {
+                //     // Made Same Move as history
+                //     history_move == piece_move
+                // } else {
+                //     false
+                // };
 
                 let moved_piece = board.get_piece(piece_move.from);
 
@@ -171,22 +175,22 @@ pub fn piece_move_event_reader(
 
                         println!("En passant capture {captured_piece:?}");
 
-                        // // Mark that there was a piece captured via en passant
-                        // piece_captured = true;
-                        // piece_move = piece_move.with_en_passant(Some(en_passant));
+                        // Mark that there was a piece captured via en passant
+                        piece_captured = true;
+                        piece_move = piece_move.with_en_passant(Some(en_passant));
 
-                        // // Delete the piece at the captured tile
-                        // let captured_entity = board.get_entity(captured_piece_pos).unwrap();
-                        // commands.entity(captured_entity).despawn();
-                        // board.set_piece(captured_piece_pos, Piece::None);
+                        // Delete the piece at the captured tile
+                        let captured_entity = board.get_entity(captured_piece_pos).unwrap();
+                        commands.entity(captured_entity).despawn();
+                        board.set_piece(captured_piece_pos, Piece::None);
 
-                        // // Should never fail
-                        // assert!(
-                        //     piece_moved_to == Piece::None,
-                        //     "Piece moved to was not empty when trying to overwrite with en passant"
-                        // );
+                        // Should never fail
+                        assert!(
+                            piece_moved_to == Piece::None,
+                            "Piece moved to was not empty when trying to overwrite with en passant"
+                        );
 
-                        // piece_moved_to = captured_piece;
+                        piece_moved_to = captured_piece;
                     }
                 }
 
@@ -204,26 +208,30 @@ pub fn piece_move_event_reader(
                     board.en_passant_on_last_move = Some(en_passant_tile);
                 }
 
-                if same_as_history_move {
-                    board.move_history.increment_index();
-                } else {
-                    if let Some((_, captured_piece)) = board.move_history.get_mut() {
-                        if piece_captured {
-                            captured_piece.replace(piece_moved_to);
-                        } else {
-                            captured_piece.take();
-                        }
-                    }
+                // if same_as_history_move {
+                //     board.move_history.increment_index();
+                // } else {
+                //     // if let Some((_, captured_piece)) = board.move_history.get_mut() {
+                //     //     if piece_captured {
+                //     //         captured_piece.replace(piece_moved_to);
+                //     //     } else {
+                //     //         captured_piece.take();
+                //     //     }
+                //     // }
 
-                    board.move_history.make_move(piece_move, None);
-                }
+                // }
+
+                let captured_piece = if piece_captured {
+                    Some(piece_moved_to)
+                } else {
+                    None
+                };
+
+                board.move_history.make_move(piece_move, captured_piece);
 
                 // Change background colour to show current move
                 board.next_player();
-                background_ev.send(BackgroundColourEvent::new(match board.get_player() {
-                    Player::White => Color::rgb(1., 1., 1.),
-                    Player::Black => Color::rgb(0., 0., 0.),
-                }));
+                background_ev.send(BackgroundColourEvent::new(board.get_player()));
             }
 
             board.move_piece(piece_move);

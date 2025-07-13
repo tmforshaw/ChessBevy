@@ -175,8 +175,6 @@ impl Board {
                                     return Err(format!("Could not create board using FEN string [{fen}]:\n\"{}{}\" is not a valid en passant square", algebraic_en_passant[0], algebraic_en_passant[1]));
                                 }
                             }
-
-                            println!("{:?}", board.en_passant_on_last_move);
                         }
                     }
                 },

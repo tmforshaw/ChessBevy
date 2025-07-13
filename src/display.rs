@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, TilePos},
+    board::{Board, Player, TilePos},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
 };
 
@@ -89,13 +89,13 @@ pub fn display_board(
 
 #[derive(Event)]
 pub struct BackgroundColourEvent {
-    colour: Color,
+    player: Player,
 }
 
 impl BackgroundColourEvent {
     #[must_use]
-    pub const fn new(colour: Color) -> Self {
-        Self { colour }
+    pub const fn new(player: Player) -> Self {
+        Self { player }
     }
 }
 
@@ -104,6 +104,9 @@ pub fn background_colour_event_handler(
     mut clear_colour: ResMut<ClearColor>,
 ) {
     for ev in background_ev.read() {
-        clear_colour.0 = ev.colour;
+        clear_colour.0 = match ev.player {
+            Player::White => Color::rgb(1., 1., 1.),
+            Player::Black => Color::rgb(0., 0., 0.),
+        };
     }
 }

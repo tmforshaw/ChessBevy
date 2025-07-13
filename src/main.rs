@@ -19,6 +19,7 @@ use possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent};
 pub mod bitboard;
 pub mod board;
 pub mod display;
+pub mod error;
 pub mod keyboard;
 pub mod move_history;
 pub mod piece;
