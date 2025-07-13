@@ -5,7 +5,10 @@ use std::fmt;
 
 use crate::{
     board::{Board, Player, TilePos},
-    display::{board_to_pixel_coords, BackgroundColourEvent, PIECE_SIZE_IMG, PIECE_TEXTURE_FILE},
+    display::{
+        board_to_pixel_coords, get_texture_atlas, BackgroundColourEvent, PIECE_SIZE_IMG,
+        PIECE_TEXTURE_FILE,
+    },
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
     piece_move::PieceMove,
 };
@@ -165,16 +168,8 @@ pub fn move_history_event_handler(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // TODO THIS CODE IS REPEATED CODE, MOVE INTO FUNCTION
-    // Texture atlas for all the pieces
-    let texture = asset_server.load(PIECE_TEXTURE_FILE);
-    let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
-        PIECE_AMT,
-        COLOUR_AMT,
-        None,
-        None,
-    ));
+    let (texture, texture_atlas_layout) =
+        get_texture_atlas(asset_server, &mut texture_atlas_layouts);
 
     for ev in move_history_ev.read() {
         // Traverse the history in the specified direction
@@ -195,6 +190,10 @@ pub fn move_history_event_handler(
         } else {
             piece_move_original
         };
+
+        // // TODO Need to set the en passant marker on each turn
+        // // Set the en_passant marker
+        // board.en_passant_on_last_move = piece_move.en_passant;
 
         let Some(piece_entity) = board.get_entity(piece_move.from) else {
             eprintln!(
@@ -220,6 +219,7 @@ pub fn move_history_event_handler(
             if let Some(captured_piece) = captured_piece {
                 let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
                     // En passant capture
+
                     TilePos::new(piece_move_original.to.file, piece_move_original.from.rank)
                 } else {
                     // Normal capture
@@ -243,6 +243,7 @@ pub fn move_history_event_handler(
             if let Some(_captured_piece) = captured_piece {
                 let captured_piece_tile = if let Some(_en_passant) = piece_move.en_passant {
                     // En passant capture
+
                     TilePos::new(piece_move.to.file, piece_move.from.rank)
                 } else {
                     // Normal capture

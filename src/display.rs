@@ -60,15 +60,8 @@ pub fn display_board(
         }
     }
 
-    // Texture atlas for all the pieces
-    let texture = asset_server.load(PIECE_TEXTURE_FILE);
-    let texture_atlas_layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
-        PIECE_AMT,
-        COLOUR_AMT,
-        None,
-        None,
-    ));
+    let (texture, texture_atlas_layout) =
+        get_texture_atlas(asset_server, &mut texture_atlas_layouts);
 
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
@@ -85,6 +78,26 @@ pub fn display_board(
             }
         }
     }
+}
+
+pub fn get_texture_atlas(
+    asset_server: Res<AssetServer>,
+    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
+) -> (
+    bevy::prelude::Handle<Image>,
+    bevy::prelude::Handle<TextureAtlasLayout>,
+) {
+    // Texture atlas for all the pieces
+    (
+        asset_server.load(PIECE_TEXTURE_FILE),
+        texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+            Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
+            PIECE_AMT,
+            COLOUR_AMT,
+            None,
+            None,
+        )),
+    )
 }
 
 #[derive(Event)]
