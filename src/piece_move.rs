@@ -153,18 +153,10 @@ pub fn piece_move_event_reader(
                     Piece::None
                 };
 
-                // let same_as_history_move = if let Some((history_move, _)) = board.move_history.get()
-                // {
-                //     // Made Same Move as history
-                //     history_move == piece_move
-                // } else {
-                //     false
-                // };
-
                 let moved_piece = board.get_piece(piece_move.from);
 
                 // Check if piece moved to the en passant tile
-                if let Some(en_passant) = board.en_passant_on_last_move {
+                let en_passant_capture = if let Some(en_passant) = board.en_passant_on_last_move {
                     if en_passant == piece_move.to {
                         // Get the captured piece type from the Board
                         let captured_piece_pos = TilePos::new(
@@ -191,11 +183,23 @@ pub fn piece_move_event_reader(
                         );
 
                         piece_moved_to = captured_piece;
+
+                        Some(en_passant)
+                    } else {
+                        None
                     }
-                }
+                } else {
+                    None
+                };
+
+                // Clear the en_passant marker
+                board.en_passant_on_last_move = None;
 
                 // Check if this move allows en passant on the next move
-                if Board::double_pawn_move_check(moved_piece, piece_move.from) {
+                if Board::double_pawn_move_check(moved_piece, piece_move.from)
+                    && (piece_move.from.rank as isize - piece_move.to.rank as isize).abs() == 2
+                {
+                    println!("double pawn!!!!");
                     let en_passant_tile = TilePos::new(
                         piece_move.to.file,
                         usize::try_from(
@@ -207,19 +211,6 @@ pub fn piece_move_event_reader(
 
                     board.en_passant_on_last_move = Some(en_passant_tile);
                 }
-
-                // if same_as_history_move {
-                //     board.move_history.increment_index();
-                // } else {
-                //     // if let Some((_, captured_piece)) = board.move_history.get_mut() {
-                //     //     if piece_captured {
-                //     //         captured_piece.replace(piece_moved_to);
-                //     //     } else {
-                //     //         captured_piece.take();
-                //     //     }
-                //     // }
-
-                // }
 
                 let captured_piece = if piece_captured {
                     Some(piece_moved_to)
