@@ -82,11 +82,11 @@ impl Default for Board {
     fn default() -> Self {
         // const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Normal Starting Board
 
-        const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
+        // const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
 
-        // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
-        // const DEFAULT_FEN: &str =
-        //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
+        const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
+                                                                                                    // const DEFAULT_FEN: &str =
+                                                                                                    //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
 
         Self::from_fen(DEFAULT_FEN).unwrap()
     }
@@ -386,11 +386,56 @@ impl Board {
                     None
                 }
             }) {
+                fn get_castling_pos(
+                    board: &Board,
+                    from: TilePos,
+                    file: usize,
+                    rank: usize,
+                ) -> Option<TilePos> {
+                    // Get Rook Position
+                    let rook = TilePos::new(file, rank);
+
+                    assert!(
+                        board.get_piece(rook) == Piece::WRook
+                            || board.get_piece(rook) == Piece::BRook,
+                        "Rook was not in expected position"
+                    );
+
+                    // Check that it is empty between the rook and the king
+                    if board.is_empty_between(from, rook) {
+                        // Check that there are no attacked tiles between the rook and the king
+                        let tiles_between = board.get_tiles_between(from, rook);
+
+                        let mut attacked_between = false;
+                        for tile in tiles_between {
+                            if board.is_pos_attacked(tile) {
+                                attacked_between = true;
+                                break;
+                            }
+                        }
+
+                        if !attacked_between {
+                            let new_file = if from.file < file { file - 1 } else { file + 1 };
+                            return Some(TilePos::new(new_file, rank));
+                        }
+                    }
+
+                    None
+                }
+
+                // // Kingside Castling
                 // if self.castling_rights[player_index].0 {
-                //     todo!()
+                //     if let Some(pos) = get_castling_pos(self, from, BOARD_SIZE - 1, from.rank) {
+                //         positions.push(pos);
+                //     }
                 // }
 
-                // Check if it is empty between king and rook
+                // // Queenside Castling
+                // if self.castling_rights[player_index].1 {
+                //     if let Some(pos) = get_castling_pos(self, from, 0, from.rank) {
+                //         positions.push(pos);
+                //     }
+                // }
             }
         }
 
@@ -531,13 +576,52 @@ impl Board {
     }
 
     #[must_use]
-    pub fn is_empty_between(&self, pos1: TilePos, pos2: TilePos) -> bool {
+    pub fn get_tiles_between(&self, pos1: TilePos, pos2: TilePos) -> Vec<TilePos> {
         assert!(
             pos1.file == pos2.file || pos1.rank == pos2.rank,
-            "Tried to check if empty between non-orthogonal tiles",
+            "Tried to get tiles between non-orthogonal tiles",
         );
 
-        todo!()
+        let file_diff_isize =
+            isize::try_from(pos1.file).unwrap() - isize::try_from(pos2.file).unwrap();
+        let rank_diff_isize =
+            isize::try_from(pos1.rank).unwrap() - isize::try_from(pos2.rank).unwrap();
+
+        assert!(
+            file_diff_isize.unsigned_abs() > 1 || rank_diff_isize.unsigned_abs() > 1,
+            "Tried to get tiles between adjacent tiles"
+        );
+
+        let lower_pos = if file_diff_isize < 0 || rank_diff_isize < 0 {
+            pos2
+        } else {
+            pos1
+        };
+
+        let file_diff = usize::from(file_diff_isize != 0);
+        let rank_diff = usize::from(rank_diff_isize != 0);
+
+        (1..((file_diff).max(rank_diff)))
+            .map(|k| {
+                TilePos::new(
+                    lower_pos.file + k * file_diff,
+                    lower_pos.rank + k * rank_diff,
+                )
+            })
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn is_empty_between(&self, pos1: TilePos, pos2: TilePos) -> bool {
+        let tiles_between = self.get_tiles_between(pos1, pos2);
+
+        for tile in tiles_between {
+            if self.get_piece(tile) == Piece::None {
+                return false;
+            }
+        }
+
+        true
     }
 
     #[must_use]

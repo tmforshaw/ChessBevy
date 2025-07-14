@@ -156,63 +156,21 @@ pub fn piece_move_event_handler(
 
                 let moved_piece = board.get_piece(piece_move.from);
 
-                // Check if piece moved to the en passant tile
-                let _en_passant_capture = if let Some(en_passant) = board.en_passant_on_last_move {
-                    if en_passant == piece_move.to {
-                        // Get the captured piece type from the Board
-                        let captured_piece_pos = TilePos::new(
-                            piece_move.to.file,
-                            piece_move.from.rank, // The rank which the piece moved from is the same as the piece it will capture
-                        );
-                        let captured_piece = board.get_piece(captured_piece_pos);
+                println!("{piece_move:?}\t{moved_piece:?}\t{piece_captured:?}\t{piece_moved_to:?}");
 
-                        // Mark that there was a piece captured via en passant
-                        piece_captured = true;
-                        piece_move = piece_move.is_en_passant_capture();
+                let en_passant_tile;
+                (en_passant_tile, piece_move, piece_captured, piece_moved_to) = handle_en_passant(
+                    &mut board,
+                    &mut commands,
+                    piece_move,
+                    moved_piece,
+                    piece_captured,
+                    piece_moved_to,
+                );
 
-                        // Delete the piece at the captured tile
-                        let captured_entity = board.get_entity(captured_piece_pos).unwrap();
-                        commands.entity(captured_entity).despawn();
-                        board.set_piece(captured_piece_pos, Piece::None);
-
-                        // Should never fail
-                        assert!(
-                            piece_moved_to == Piece::None,
-                            "Piece moved to was not empty when trying to overwrite with en passant"
-                        );
-
-                        piece_moved_to = captured_piece;
-
-                        Some(en_passant)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                // Clear the en_passant marker, caching it for use in the history_move.make_move() function
-                let en_passant_tile = board.en_passant_on_last_move;
-                board.en_passant_on_last_move = None;
-
-                // Check if this move allows en passant on the next move
-                if Board::double_pawn_move_check(moved_piece, piece_move.from)
-                    && (isize::try_from(piece_move.from.rank).unwrap()
-                        - isize::try_from(piece_move.to.rank).unwrap())
-                    .abs()
-                        == 2
-                {
-                    let en_passant_tile = TilePos::new(
-                        piece_move.to.file,
-                        usize::try_from(
-                            isize::try_from(piece_move.from.rank).unwrap()
-                                + Board::get_vertical_dir(moved_piece),
-                        )
-                        .unwrap(),
-                    );
-
-                    board.en_passant_on_last_move = Some(en_passant_tile);
-                }
+                println!(
+                    "{piece_move:?}\t{moved_piece:?}\t{piece_captured:?}\t{piece_moved_to:?}\n"
+                );
 
                 let captured_piece = if piece_captured {
                     Some(piece_moved_to)
@@ -247,4 +205,62 @@ pub fn translate_piece_entity(
     let mut transform = transform_query.get_mut(piece_entity).unwrap();
     let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
     transform.translation = Vec3::new(x, y, 1.);
+}
+
+// Returns the en_passant tile for this move
+fn handle_en_passant(
+    board: &mut Board,
+    commands: &mut Commands,
+    mut piece_move: PieceMove,
+    moved_piece: Piece,
+    mut piece_captured: bool,
+    mut piece_moved_to: Piece,
+) -> (Option<TilePos>, PieceMove, bool, Piece) {
+    // Check if piece moved to the en passant tile
+    if let Some(en_passant) = board.en_passant_on_last_move {
+        if en_passant == piece_move.to {
+            // Get the captured piece type from the Board
+            let captured_piece_pos = TilePos::new(
+                piece_move.to.file,
+                piece_move.from.rank, // The rank which the piece moved from is the same as the piece it will capture
+            );
+            let captured_piece = board.get_piece(captured_piece_pos);
+
+            // Mark that there was a piece captured via en passant
+            piece_captured = true;
+            piece_move = piece_move.is_en_passant_capture();
+
+            // Delete the piece at the captured tile
+            let captured_entity = board.get_entity(captured_piece_pos).unwrap();
+            commands.entity(captured_entity).despawn();
+            board.set_piece(captured_piece_pos, Piece::None);
+
+            piece_moved_to = captured_piece;
+        }
+    }
+
+    // Clear the en_passant marker, caching it for use in the history_move.make_move() function
+    let en_passant_tile = board.en_passant_on_last_move;
+    board.en_passant_on_last_move = None;
+
+    // Check if this move allows en passant on the next move
+    if Board::double_pawn_move_check(moved_piece, piece_move.from)
+        && (isize::try_from(piece_move.from.rank).unwrap()
+            - isize::try_from(piece_move.to.rank).unwrap())
+        .abs()
+            == 2
+    {
+        let en_passant_tile = TilePos::new(
+            piece_move.to.file,
+            usize::try_from(
+                isize::try_from(piece_move.from.rank).unwrap()
+                    + Board::get_vertical_dir(moved_piece),
+            )
+            .unwrap(),
+        );
+
+        board.en_passant_on_last_move = Some(en_passant_tile);
+    }
+
+    (en_passant_tile, piece_move, piece_captured, piece_moved_to)
 }
