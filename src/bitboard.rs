@@ -109,7 +109,7 @@ impl fmt::Display for BitBoard {
 
 #[derive(Default, Clone)]
 pub struct BitBoards {
-    boards: [BitBoard; PIECE_AMT * COLOUR_AMT],
+    pub boards: [BitBoard; PIECE_AMT * COLOUR_AMT],
 }
 
 impl Display for BitBoards {

@@ -8,6 +8,7 @@ use crate::{
     move_history::PieceMoveHistory,
     piece::{Piece, COLOUR_AMT, PIECES},
     piece_move::PieceMove,
+    possible_moves::get_pseudolegal_moves,
 };
 
 #[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
@@ -77,8 +78,10 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
+        // const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Normal Starting Board
+        // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
+        const DEFAULT_FEN: &str =
+            "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
 
         Self::from_fen(DEFAULT_FEN).unwrap()
     }
@@ -283,17 +286,17 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_orthogonal_moves(&mut self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_orthogonal_moves(&self, from: TilePos) -> Vec<TilePos> {
         self.get_moves_in_dir(from, vec![(1, 0), (0, 1), (-1, 0), (0, -1)])
     }
 
     #[must_use]
-    pub fn get_diagonal_moves(&mut self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
         self.get_moves_in_dir(from, vec![(1, 1), (1, -1), (-1, 1), (-1, -1)])
     }
 
     #[must_use]
-    pub fn get_ortho_diagonal_moves(&mut self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_ortho_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
         let mut positions = self.get_orthogonal_moves(from);
         positions.append(&mut self.get_diagonal_moves(from));
 
@@ -301,7 +304,7 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_knight_moves(&mut self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_knight_moves(&self, from: TilePos) -> Vec<TilePos> {
         let mut positions = Vec::new();
 
         let file_isize = isize::try_from(from.file).unwrap();
@@ -335,7 +338,7 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_king_moves(&mut self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_king_moves(&self, from: TilePos) -> Vec<TilePos> {
         let mut positions = Vec::new();
 
         let file_isize = isize::try_from(from.file).unwrap();
@@ -370,7 +373,7 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_pawn_moves(&mut self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_pawn_moves(&self, from: TilePos) -> Vec<TilePos> {
         let piece = self.get_piece(from);
         let vertical_dir = Self::get_vertical_dir(piece);
 
@@ -396,12 +399,13 @@ impl Board {
             for k in [-1, 1] {
                 let new_horizontal_pos = file_isize + k;
 
-                let new_pos = TilePos::new(
-                    usize::try_from(new_horizontal_pos).unwrap(),
-                    usize::try_from(new_vertical_pos).unwrap(),
-                );
                 if new_horizontal_pos > 0 && new_horizontal_pos < board_size_isize {
                     if let Some(player) = piece.to_player() {
+                        let new_pos = TilePos::new(
+                            usize::try_from(new_horizontal_pos).unwrap(),
+                            usize::try_from(new_vertical_pos).unwrap(),
+                        );
+
                         if let Some(captured_player) = self.get_piece(new_pos).to_player() {
                             if player != captured_player {
                                 positions.push(new_pos);
@@ -435,6 +439,60 @@ impl Board {
         }
 
         positions
+    }
+
+    // Get the tiles which are attacked by the opposing player
+    #[must_use]
+    pub fn get_attacked_tiles(&self, player: Player) -> Vec<TilePos> {
+        self.positions
+            .boards
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &board)| {
+                // Choose only the boards for pieces which are not this player's
+                if PIECES[i].is_player(player) {
+                    None
+                } else {
+                    Some(board)
+                }
+            })
+            .flat_map(|board| {
+                // Get the pseudolegal moves for all pieces of this type
+                board
+                    .get_positions()
+                    .iter()
+                    .flat_map(|&pos| get_pseudolegal_moves(self, pos))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn is_pos_attacked(&self, pos: TilePos) -> bool {
+        if let Some(player) = self.get_piece(pos).to_player() {
+            self.get_attacked_tiles(player).contains(&pos)
+        } else {
+            // Don't bother to check for Piece::None
+            eprintln!("Tried to check if Piece::None was attacked");
+            false
+        }
+    }
+
+    #[must_use]
+    pub fn move_makes_pos_attacked(&self, piece_move: PieceMove, pos: TilePos) -> bool {
+        // Move the piece on a cloned board
+        let mut test_board = self.clone();
+        test_board.move_piece(piece_move);
+
+        // Check if the tile which we are testing is the piece which is being moved
+        let pos = if pos == piece_move.from {
+            // Move the tile which is being tested to this new position
+            piece_move.to
+        } else {
+            pos
+        };
+
+        test_board.is_pos_attacked(pos)
     }
 
     #[must_use]

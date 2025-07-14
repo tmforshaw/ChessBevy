@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, TilePos},
+    board::{Board, Player, TilePos},
     display::{board_to_pixel_coords, PIECE_SIZE},
     piece::Piece,
+    piece_move::PieceMove,
 };
 
 #[derive(Event, Debug)]
@@ -20,11 +21,13 @@ pub fn possible_move_event_handler(
     mut ev_display: EventReader<PossibleMoveDisplayEvent>,
     possible_move_entities: Query<Entity, With<PossibleMoveMarker>>,
     mut commands: Commands,
-    mut board: ResMut<Board>,
+    board: ResMut<Board>,
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            let positions = get_possible_moves(&mut board, ev.from);
+            let positions = get_possible_moves(&board, ev.from);
+            println!("Possible: {positions:?}");
+            // let positions = get_pseudolegal_moves(&board, ev.from);
             for pos in positions {
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
@@ -49,9 +52,8 @@ pub fn possible_move_event_handler(
     }
 }
 
-#[allow(clippy::needless_pass_by_value)]
 #[must_use]
-pub fn get_possible_moves(board: &mut Board, from: TilePos) -> Vec<TilePos> {
+pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
     let piece = board.get_piece(from);
 
     (match piece {
@@ -62,11 +64,32 @@ pub fn get_possible_moves(board: &mut Board, from: TilePos) -> Vec<TilePos> {
         Piece::BBishop | Piece::WBishop => Board::get_diagonal_moves,
         Piece::BPawn | Piece::WPawn => Board::get_pawn_moves,
         Piece::None => {
-            const fn no_moves(_: &mut Board, _: TilePos) -> Vec<TilePos> {
+            const fn no_moves(_: &Board, _: TilePos) -> Vec<TilePos> {
                 Vec::new()
             }
 
             no_moves
         }
     })(board, from)
+}
+
+#[must_use]
+pub fn get_possible_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
+    let current_player_king = match board.get_player() {
+        Player::White => Piece::WKing,
+        Player::Black => Piece::BKing,
+    };
+
+    let king_pos = board.positions[current_player_king].get_positions()[0]; // Should always have a king
+
+    println!("From: {from:?}\tKing_Pos: {king_pos:?}\tKing: {current_player_king:?}");
+
+    // Don't allow moves which cause the king to be attacked
+    get_pseudolegal_moves(board, from)
+        .into_iter()
+        .filter(|&move_to_pos| {
+            // Ensure that move won't cause the king to be attacked
+            !board.move_makes_pos_attacked(PieceMove::new(from, move_to_pos), king_pos)
+        })
+        .collect::<Vec<_>>()
 }

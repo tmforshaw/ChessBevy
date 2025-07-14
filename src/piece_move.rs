@@ -122,7 +122,7 @@ pub fn piece_move_event_reader(
             // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
             let pos = if !moved_to.is_player(board.player)
                 && board.get_piece(piece_move.from).is_player(board.player)
-                && get_possible_moves(&mut board, piece_move.from).contains(&piece_move.to)
+                && get_possible_moves(&board, piece_move.from).contains(&piece_move.to)
             {
                 // Need to capture
                 if moved_to != Piece::None {
