@@ -43,7 +43,6 @@ fn main() {
                         title: "Chez.cum".into(),
                         resolution: (1920., 1280.).into(),
                         resizable: true,
-
                         ..default()
                     }),
                     ..default()

@@ -81,9 +81,12 @@ pub struct Board {
 impl Default for Board {
     fn default() -> Self {
         // const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Normal Starting Board
+
+        const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
+
         // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
-        const DEFAULT_FEN: &str =
-            "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
+        // const DEFAULT_FEN: &str =
+        //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
 
         Self::from_fen(DEFAULT_FEN).unwrap()
     }
@@ -347,6 +350,9 @@ impl Board {
         let rank_isize = isize::try_from(from.rank).unwrap();
         let board_size_isize = isize::try_from(BOARD_SIZE).unwrap();
 
+        let player = self.get_piece(from).to_player();
+
+        // Normal movement
         for i in [-1, 0, 1] {
             for j in [-1, 0, 1] {
                 if !(i == 0 && j == 0) {
@@ -363,11 +369,28 @@ impl Board {
                             usize::try_from(rank_isize + j).unwrap(),
                         );
 
-                        if self.get_piece(new_pos).to_player() != self.get_piece(from).to_player() {
+                        if self.get_piece(new_pos).to_player() != player {
                             positions.push(new_pos);
                         }
                     }
                 }
+            }
+        }
+
+        // Castling
+        if let Some(player) = player {
+            if let Some(player_index) = PLAYERS.iter().enumerate().find_map(|(i, &test_player)| {
+                if test_player == player {
+                    Some(i)
+                } else {
+                    None
+                }
+            }) {
+                // if self.castling_rights[player_index].0 {
+                //     todo!()
+                // }
+
+                // Check if it is empty between king and rook
             }
         }
 
@@ -505,6 +528,16 @@ impl Board {
     #[must_use]
     pub fn get_vertical_dir(piece: Piece) -> isize {
         isize::from(piece.is_white()) * 2 - 1
+    }
+
+    #[must_use]
+    pub fn is_empty_between(&self, pos1: TilePos, pos2: TilePos) -> bool {
+        assert!(
+            pos1.file == pos2.file || pos1.rank == pos2.rank,
+            "Tried to check if empty between non-orthogonal tiles",
+        );
+
+        todo!()
     }
 
     #[must_use]
