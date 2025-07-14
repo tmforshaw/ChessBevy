@@ -11,23 +11,27 @@
 
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
-use bitboard::{bitboard_event_handler, BitBoardDisplayEvent};
-use display::{background_colour_event_handler, BackgroundColourEvent};
-use keyboard::{keyboard_event_handler, KeyboardState};
-use move_history::{move_history_event_handler, MoveHistoryEvent};
-use piece_move::{piece_move_event_reader, PieceMoveEvent};
-use possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent};
+
+use crate::{
+    bitboard::{bitboard_event_handler, BitBoardDisplayEvent},
+    board::Board,
+    checkmate::{checkmate_event_handler, CheckmateEvent},
+    display::{background_colour_event_handler, display_board, BackgroundColourEvent},
+    keyboard::{keyboard_event_handler, KeyboardState},
+    move_history::{move_history_event_handler, MoveHistoryEvent},
+    piece_move::{piece_move_event_handler, PieceMoveEvent},
+    possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
+};
 
 pub mod bitboard;
 pub mod board;
+pub mod checkmate;
 pub mod display;
 pub mod keyboard;
 pub mod move_history;
 pub mod piece;
 pub mod piece_move;
 pub mod possible_moves;
-
-use crate::{board::Board, display::display_board};
 
 fn main() {
     App::new()
@@ -55,12 +59,13 @@ fn main() {
         .add_systems(
             Update,
             (
-                piece_move_event_reader,
+                piece_move_event_handler,
                 bitboard_event_handler,
                 possible_move_event_handler,
                 keyboard_event_handler,
                 background_colour_event_handler,
                 move_history_event_handler,
+                checkmate_event_handler,
             ),
         )
         .add_event::<PieceMoveEvent>()
@@ -68,6 +73,7 @@ fn main() {
         .add_event::<PossibleMoveDisplayEvent>()
         .add_event::<BackgroundColourEvent>()
         .add_event::<MoveHistoryEvent>()
+        .add_event::<CheckmateEvent>()
         .run();
 }
 

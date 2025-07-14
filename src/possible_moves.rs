@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    board::{Board, Player, TilePos},
+    board::{Board, TilePos},
     display::{board_to_pixel_coords, PIECE_SIZE},
     piece::Piece,
     piece_move::PieceMove,
@@ -25,10 +25,7 @@ pub fn possible_move_event_handler(
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            let positions = get_possible_moves(&board, ev.from);
-            println!("Possible: {positions:?}");
-            // let positions = get_pseudolegal_moves(&board, ev.from);
-            for pos in positions {
+            for pos in get_possible_moves(&board, ev.from) {
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
                 commands.spawn((
@@ -75,14 +72,7 @@ pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
 
 #[must_use]
 pub fn get_possible_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
-    let current_player_king = match board.get_player() {
-        Player::White => Piece::WKing,
-        Player::Black => Piece::BKing,
-    };
-
-    let king_pos = board.positions[current_player_king].get_positions()[0]; // Should always have a king
-
-    println!("From: {from:?}\tKing_Pos: {king_pos:?}\tKing: {current_player_king:?}");
+    let king_pos = board.get_king_pos(board.get_player());
 
     // Don't allow moves which cause the king to be attacked
     get_pseudolegal_moves(board, from)

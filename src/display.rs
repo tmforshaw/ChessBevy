@@ -102,13 +102,23 @@ pub fn get_texture_atlas(
 
 #[derive(Event)]
 pub struct BackgroundColourEvent {
-    player: Player,
+    colour: Color,
 }
 
 impl BackgroundColourEvent {
     #[must_use]
-    pub const fn new(player: Player) -> Self {
-        Self { player }
+    pub const fn new_from_player(player: Player) -> Self {
+        Self {
+            colour: match player {
+                Player::White => Color::rgb(1., 1., 1.),
+                Player::Black => Color::rgb(0., 0., 0.),
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn new(colour: Color) -> Self {
+        Self { colour }
     }
 }
 
@@ -117,9 +127,6 @@ pub fn background_colour_event_handler(
     mut clear_colour: ResMut<ClearColor>,
 ) {
     for ev in background_ev.read() {
-        clear_colour.0 = match ev.player {
-            Player::White => Color::rgb(1., 1., 1.),
-            Player::Black => Color::rgb(0., 0., 0.),
-        };
+        clear_colour.0 = ev.colour;
     }
 }

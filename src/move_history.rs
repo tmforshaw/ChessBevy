@@ -314,6 +314,6 @@ pub fn move_history_event_handler(
 
         // Change background colour to show current move
         board.next_player();
-        background_ev.send(BackgroundColourEvent::new(board.get_player()));
+        background_ev.send(BackgroundColourEvent::new_from_player(board.get_player()));
     }
 }

@@ -8,7 +8,7 @@ use crate::{
     move_history::PieceMoveHistory,
     piece::{Piece, COLOUR_AMT, PIECES},
     piece_move::PieceMove,
-    possible_moves::get_pseudolegal_moves,
+    possible_moves::{get_possible_moves, get_pseudolegal_moves},
 };
 
 #[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
@@ -17,6 +17,8 @@ pub enum Player {
     White,
     Black,
 }
+
+const PLAYERS: &[Player] = &[Player::White, Player::Black];
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -503,5 +505,31 @@ impl Board {
     #[must_use]
     pub fn get_vertical_dir(piece: Piece) -> isize {
         isize::from(piece.is_white()) * 2 - 1
+    }
+
+    #[must_use]
+    pub const fn get_player_king(&self, player: Player) -> Piece {
+        match player {
+            Player::White => Piece::WKing,
+            Player::Black => Piece::BKing,
+        }
+    }
+
+    #[must_use]
+    pub fn get_king_pos(&self, player: Player) -> TilePos {
+        self.positions[self.get_player_king(player)].get_positions()[0] // Should always have a king
+    }
+
+    #[must_use]
+    pub fn is_checkmate(&self) -> bool {
+        // Get the position of all kings
+        for king_pos in PLAYERS.iter().map(|&player| self.get_king_pos(player)) {
+            // King is in check, and has no moves
+            if self.is_pos_attacked(king_pos) && get_possible_moves(self, king_pos).is_empty() {
+                return true;
+            }
+        }
+
+        false
     }
 }

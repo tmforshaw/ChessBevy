@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     board::{Board, TilePos},
+    checkmate::CheckmateEvent,
     display::{board_to_pixel_coords, BackgroundColourEvent},
     piece::Piece,
     possible_moves::get_possible_moves,
@@ -103,12 +104,13 @@ impl std::fmt::Display for PieceMove {
     }
 }
 
-pub fn piece_move_event_reader(
+pub fn piece_move_event_handler(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
     mut transform_query: Query<&mut Transform>,
     mut board: ResMut<Board>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
+    mut checkmate_ev: EventWriter<CheckmateEvent>,
 ) {
     for ev in ev_piece_move.read() {
         let mut piece_move = ev.piece_move;
@@ -163,8 +165,6 @@ pub fn piece_move_event_reader(
                             piece_move.from.rank, // The rank which the piece moved from is the same as the piece it will capture
                         );
                         let captured_piece = board.get_piece(captured_piece_pos);
-
-                        println!("En passant capture {captured_piece:?}");
 
                         // Mark that there was a piece captured via en passant
                         piece_captured = true;
@@ -226,10 +226,15 @@ pub fn piece_move_event_reader(
 
                 // Change background colour to show current move
                 board.next_player();
-                background_ev.send(BackgroundColourEvent::new(board.get_player()));
+                background_ev.send(BackgroundColourEvent::new_from_player(board.get_player()));
             }
 
             board.move_piece(piece_move);
+        }
+
+        // Check if this move has caused a checkmate
+        if board.is_checkmate() {
+            checkmate_ev.send(CheckmateEvent::new(board.get_player()));
         }
     }
 }
