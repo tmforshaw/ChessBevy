@@ -5,7 +5,7 @@ use std::fmt;
 
 use crate::{
     board::{Board, TilePos},
-    display::{get_texture_atlas, BackgroundColourEvent},
+    display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
     piece::{Piece, PieceBundle},
     piece_move::{translate_piece_entity, PieceMove},
 };
@@ -262,6 +262,67 @@ pub fn move_history_event_handler(
 
         // Move Entity
         translate_piece_entity(piece_entity, piece_move.to, &mut transform_query);
+
+        if piece_move.castling {
+            println!("History: Castle Move");
+
+            // Determine if this is kingside or queenside castling
+            let file_diff = isize::try_from(piece_move_original.to.file).unwrap()
+                - isize::try_from(piece_move_original.from.file).unwrap();
+
+            // Get the position the rook is at before and after a castle in this direction
+            let (before_castling_rook_pos, after_castling_rook_pos) = if file_diff > 0 {
+                (
+                    TilePos::new(BOARD_SIZE - 1, piece_move_original.from.rank),
+                    TilePos::new(BOARD_SIZE - 3, piece_move_original.from.rank),
+                )
+            } else {
+                (
+                    TilePos::new(0, piece_move_original.from.rank),
+                    TilePos::new(3, piece_move_original.from.rank),
+                )
+            };
+
+            // Create a piece move from the rook's position
+            let rook_piece_move =
+                PieceMove::new(before_castling_rook_pos, after_castling_rook_pos).with_show(false);
+
+            // Reverse the piece move if we are undo-ing
+            let rook_piece_move = if ev.backwards {
+                rook_piece_move.rev()
+            } else {
+                rook_piece_move
+            };
+
+            // Move the rook internally
+            board.move_piece(rook_piece_move.with_show(false));
+
+            // Translate the rook's entity
+            if let Some(rook_entity) = board.get_entity(rook_piece_move.to) {
+                translate_piece_entity(rook_entity, rook_piece_move.to, &mut transform_query);
+            } else {
+                println!("No Rook Found");
+            }
+
+            // TODO TODO TODO TODO
+            // Update the board's castling rights
+            let player_index = board
+                .get_piece(piece_move.from)
+                .to_player()
+                .expect("Player could not be found via piece move in History")
+                .to_index();
+
+            if ev.backwards {
+                // TODO The history needs to remember the castling rights
+                board.castling_rights[player_index].0 = true;
+                board.castling_rights[player_index].1 = true;
+            } else {
+                // TODO need to make this reset whenever the king or rook has moved
+                // Set all castling to false
+                board.castling_rights[player_index].0 = false;
+                board.castling_rights[player_index].1 = false;
+            }
+        }
 
         // Only create a piece for a captured piece when undo-ing moves
         if ev.backwards {

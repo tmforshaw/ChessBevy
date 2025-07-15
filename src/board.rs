@@ -18,6 +18,25 @@ pub enum Player {
     Black,
 }
 
+impl Player {
+    #[must_use]
+    pub fn to_index(&self) -> usize {
+        PLAYERS
+            .iter()
+            .enumerate()
+            .find_map(
+                |(i, test_player)| {
+                    if test_player == self {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                },
+            )
+            .expect("Could not find index of player: {self:?}")
+    }
+}
+
 const PLAYERS: &[Player] = &[Player::White, Player::Black];
 
 #[allow(dead_code)]
@@ -70,7 +89,7 @@ impl From<TilePos> for (usize, usize) {
 pub struct Board {
     pub positions: BitBoards,
     pub player: Player,
-    castling_rights: [(bool, bool); COLOUR_AMT],
+    pub castling_rights: [(bool, bool); COLOUR_AMT],
     pub en_passant_on_last_move: Option<TilePos>,
     pub half_move_counter: usize,
     pub full_move_counter: usize,
@@ -82,11 +101,11 @@ impl Default for Board {
     fn default() -> Self {
         // const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Normal Starting Board
 
-        // const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
+        const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
 
-        const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
-                                                                                                    // const DEFAULT_FEN: &str =
-                                                                                                    //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
+        // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
+        // const DEFAULT_FEN: &str =
+        //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
 
         Self::from_fen(DEFAULT_FEN).unwrap()
     }
@@ -379,63 +398,60 @@ impl Board {
 
         // Castling
         if let Some(player) = player {
-            if let Some(player_index) = PLAYERS.iter().enumerate().find_map(|(i, &test_player)| {
-                if test_player == player {
-                    Some(i)
-                } else {
-                    None
-                }
-            }) {
-                fn get_castling_pos(
-                    board: &Board,
-                    from: TilePos,
-                    file: usize,
-                    rank: usize,
-                ) -> Option<TilePos> {
-                    // Get Rook Position
-                    let rook = TilePos::new(file, rank);
+            let player_index = player.to_index();
 
-                    assert!(
-                        board.get_piece(rook) == Piece::WRook
-                            || board.get_piece(rook) == Piece::BRook,
-                        "Rook was not in expected position"
-                    );
+            fn get_castling_pos(
+                board: &Board,
+                from: TilePos,
+                file: usize,
+                rank: usize,
+            ) -> Option<TilePos> {
+                // Get Rook Position
+                let rook = TilePos::new(file, rank);
 
-                    // Check that it is empty between the rook and the king
-                    if board.is_empty_between(from, rook) {
-                        // Check that there are no attacked tiles between the rook and the king
-                        let tiles_between = board.get_tiles_between(from, rook);
+                assert!(
+                    board.get_piece(rook) == Piece::WRook || board.get_piece(rook) == Piece::BRook,
+                    "Rook was not in expected position"
+                );
 
-                        let mut attacked_between = false;
-                        for tile in tiles_between {
-                            if board.is_pos_attacked(tile) {
-                                attacked_between = true;
-                                break;
-                            }
-                        }
+                // Check that it is empty between the rook and the king
+                if board.is_empty_between(from, rook) {
+                    // Check that there are no attacked tiles between the rook and the king
+                    let tiles_between = board.get_tiles_between(from, rook);
 
-                        if !attacked_between {
-                            let new_file = if from.file < file { file - 1 } else { file + 1 };
-                            return Some(TilePos::new(new_file, rank));
+                    let mut attacked_between = false;
+                    for tile in tiles_between {
+                        if board.is_pos_attacked(tile) {
+                            attacked_between = true;
+                            break;
                         }
                     }
 
-                    None
+                    if !attacked_between {
+                        let new_file = if from.file < file {
+                            from.file - 2
+                        } else {
+                            from.file + 2
+                        };
+                        return Some(TilePos::new(new_file, rank));
+                    }
                 }
 
-                // // Kingside Castling
-                // if self.castling_rights[player_index].0 {
-                //     if let Some(pos) = get_castling_pos(self, from, BOARD_SIZE - 1, from.rank) {
-                //         positions.push(pos);
-                //     }
-                // }
+                None
+            }
 
-                // // Queenside Castling
-                // if self.castling_rights[player_index].1 {
-                //     if let Some(pos) = get_castling_pos(self, from, 0, from.rank) {
-                //         positions.push(pos);
-                //     }
-                // }
+            // Kingside Castling
+            if self.castling_rights[player_index].0 {
+                if let Some(pos) = get_castling_pos(self, from, BOARD_SIZE - 1, from.rank) {
+                    positions.push(pos);
+                }
+            }
+
+            // Queenside Castling
+            if self.castling_rights[player_index].1 {
+                if let Some(pos) = get_castling_pos(self, from, 0, from.rank) {
+                    positions.push(pos);
+                }
             }
         }
 

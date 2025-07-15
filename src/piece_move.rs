@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::{
     board::{Board, TilePos},
     checkmate::CheckmateEvent,
-    display::{board_to_pixel_coords, BackgroundColourEvent},
+    display::{board_to_pixel_coords, BackgroundColourEvent, BOARD_SIZE},
     piece::Piece,
     possible_moves::get_possible_moves,
 };
@@ -21,6 +21,7 @@ pub struct PieceMove {
     pub from: TilePos,
     pub to: TilePos,
     pub en_passant_capture: bool,
+    pub castling: bool,
     pub show: bool,
 }
 
@@ -31,17 +32,8 @@ impl PieceMove {
             from,
             to,
             en_passant_capture: false,
+            castling: false,
             show: true,
-        }
-    }
-
-    #[must_use]
-    pub const fn new_unshown(from: TilePos, to: TilePos) -> Self {
-        Self {
-            from,
-            to,
-            en_passant_capture: false,
-            show: false,
         }
     }
 
@@ -51,16 +43,29 @@ impl PieceMove {
             from: self.from,
             to: self.to,
             en_passant_capture: self.en_passant_capture,
+            castling: self.castling,
             show,
         }
     }
 
     #[must_use]
-    pub const fn is_en_passant_capture(&self) -> Self {
+    pub const fn with_castling(&self, castling: bool) -> Self {
+        Self {
+            from: self.from,
+            to: self.to,
+            en_passant_capture: self.en_passant_capture,
+            castling,
+            show: self.show,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_en_passant_capture(&self) -> Self {
         Self {
             from: self.from,
             to: self.to,
             en_passant_capture: true,
+            castling: self.castling,
             show: self.show,
         }
     }
@@ -79,6 +84,7 @@ impl PieceMove {
             from: self.to,
             to: self.from,
             en_passant_capture: self.en_passant_capture,
+            castling: self.castling,
             show: self.show,
         }
     }
@@ -156,8 +162,7 @@ pub fn piece_move_event_handler(
 
                 let moved_piece = board.get_piece(piece_move.from);
 
-                println!("{piece_move:?}\t{moved_piece:?}\t{piece_captured:?}\t{piece_moved_to:?}");
-
+                // Handle en passant, if this move is en passant, or if this move allows en passant on the next move
                 let en_passant_tile;
                 (en_passant_tile, piece_move, piece_captured, piece_moved_to) = handle_en_passant(
                     &mut board,
@@ -168,9 +173,62 @@ pub fn piece_move_event_handler(
                     piece_moved_to,
                 );
 
-                println!(
-                    "{piece_move:?}\t{moved_piece:?}\t{piece_captured:?}\t{piece_moved_to:?}\n"
-                );
+                // Handle Castling
+                // If piece is this player's king, and the king moved 2 spaces
+                let file_diff_isize = isize::try_from(piece_move.to.file).unwrap()
+                    - isize::try_from(piece_move.from.file).unwrap();
+                if moved_piece == board.get_player_king(board.get_player())
+                    && file_diff_isize.unsigned_abs() == 2
+                {
+                    piece_move = piece_move.with_castling(true);
+
+                    let player_index = board.get_player().to_index();
+
+                    board.castling_rights[player_index].0 = false;
+                    board.castling_rights[player_index].1 = false;
+
+                    fn move_rook_for_castle(
+                        board: &mut Board,
+                        transform_query: &mut Query<&mut Transform>,
+                        file: usize,
+                        new_file: usize,
+                        from_rank: usize,
+                    ) {
+                        let rook_pos = TilePos::new(file, from_rank);
+                        let new_rook_pos = TilePos::new(new_file, rook_pos.rank);
+
+                        // Move the rook entity
+                        translate_piece_entity(
+                            board
+                                .get_entity(rook_pos)
+                                .expect("Rook entity was not at Rook pos"),
+                            new_rook_pos,
+                            transform_query,
+                        );
+
+                        // Move the rook (and its entity ID) internally
+                        board.move_piece(PieceMove::new(rook_pos, new_rook_pos));
+                    }
+
+                    // Kingside Castle
+                    if file_diff_isize > 0 {
+                        move_rook_for_castle(
+                            &mut board,
+                            &mut transform_query,
+                            BOARD_SIZE - 1,
+                            BOARD_SIZE - 3,
+                            piece_move.from.rank,
+                        );
+                    } else {
+                        move_rook_for_castle(
+                            &mut board,
+                            &mut transform_query,
+                            0,
+                            3,
+                            piece_move.from.rank,
+                        );
+                    }
+                }
 
                 let captured_piece = if piece_captured {
                     Some(piece_moved_to)
@@ -228,7 +286,7 @@ fn handle_en_passant(
 
             // Mark that there was a piece captured via en passant
             piece_captured = true;
-            piece_move = piece_move.is_en_passant_capture();
+            piece_move = piece_move.with_en_passant_capture();
 
             // Delete the piece at the captured tile
             let captured_entity = board.get_entity(captured_piece_pos).unwrap();
