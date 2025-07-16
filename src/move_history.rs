@@ -309,11 +309,8 @@ pub fn move_history_event_handler(
                 en_passant_tile
             };
 
-        // TODO I set these for both backwards and not backwards
         // Set the castling rights
-        if !ev.backwards {
-            board.castling_rights = castling_rights;
-        }
+        board.castling_rights = castling_rights;
 
         let Some(piece_entity) = board.get_entity(piece_move.from) else {
             eprintln!(
@@ -327,11 +324,6 @@ pub fn move_history_event_handler(
 
         // Move Entity
         translate_piece_entity(piece_entity, piece_move.to, &mut transform_query);
-
-        // Reset the castling rights
-        if ev.backwards {
-            board.castling_rights[player_index] = castling_rights[player_index];
-        }
 
         if piece_move.move_type == PieceMoveType::Castling {
             // Determine if this is kingside or queenside castling
