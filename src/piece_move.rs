@@ -22,10 +22,7 @@ pub enum PieceMoveType {
     Normal,
     EnPassant,
     Castling,
-    Promotion {
-        from_piece: Piece,
-        to_piece: Piece,
-    },
+    Promotion(Piece),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -78,14 +75,11 @@ impl PieceMove {
     }
 
     #[must_use]
-    pub const fn with_promotion(&self, from_piece: Piece, to_piece: Piece) -> Self {
+    pub const fn with_promotion(&self, promoted_to: Piece) -> Self {
         Self {
             from: self.from,
             to: self.to,
-            move_type: PieceMoveType::Promotion {
-                from_piece,
-                to_piece,
-            },
+            move_type: PieceMoveType::Promotion(promoted_to),
             show: self.show,
         }
     }
@@ -133,6 +127,7 @@ pub fn piece_move_event_handler(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
     mut transform_query: Query<&mut Transform>,
+    mut texture_atlas_query: Query<&mut TextureAtlas>,
     mut board: ResMut<Board>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
     mut checkmate_ev: EventWriter<CheckmateEvent>,
@@ -182,6 +177,22 @@ pub fn piece_move_event_handler(
                 let moved_piece = board.get_piece(piece_move.from);
 
                 // Handle promotion
+
+                // Pawn was moved onto final file (Player doesn't matter here since pawn cannot move backwards)
+                if moved_piece == board.get_player_piece(board.get_player(), Piece::WPawn)
+                    && (piece_move.to.rank == BOARD_SIZE - 1 || piece_move.to.rank == 0)
+                {
+                    let promoted_to = board.get_player_piece(board.get_player(), Piece::WQueen);
+
+                    piece_move = piece_move.with_promotion(promoted_to);
+
+                    // Change the type of the piece in the internal board
+                    board.set_piece(piece_move.from, promoted_to);
+
+                    // Change the entity texture to the correct piece
+                    let mut texture_atlas = texture_atlas_query.get_mut(ev.entity).unwrap();
+                    texture_atlas.index = promoted_to.to_bitboard_index();
+                }
 
                 // Handle en passant, if this move is en passant, or if this move allows en passant on the next move
                 let en_passant_tile;

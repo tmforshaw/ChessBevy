@@ -7,7 +7,7 @@ use crate::{
     display::BOARD_SIZE,
     move_history::PieceMoveHistory,
     piece::{Piece, COLOUR_AMT, PIECES},
-    piece_move::PieceMove,
+    piece_move::{PieceMove, PieceMoveType},
     possible_moves::{get_possible_moves, get_pseudolegal_moves},
 };
 
@@ -37,7 +37,7 @@ impl Player {
     }
 }
 
-const PLAYERS: &[Player] = &[Player::White, Player::Black];
+pub const PLAYERS: &[Player] = &[Player::White, Player::Black];
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

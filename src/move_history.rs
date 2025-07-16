@@ -4,7 +4,7 @@ use thiserror::Error;
 use std::fmt;
 
 use crate::{
-    board::{Board, TilePos},
+    board::{Board, TilePos, PLAYERS},
     display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
     piece::{Piece, PieceBundle, COLOUR_AMT},
     piece_move::{translate_piece_entity, PieceMove, PieceMoveType},
@@ -243,6 +243,7 @@ pub struct MoveHistoryEvent {
 }
 
 #[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::too_many_arguments)]
 pub fn move_history_event_handler(
     mut move_history_ev: EventReader<MoveHistoryEvent>,
     mut board: ResMut<Board>,
@@ -251,6 +252,7 @@ pub fn move_history_event_handler(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut texture_atlas_query: Query<&mut TextureAtlas>,
 ) {
     let (texture, texture_atlas_layout) =
         get_texture_atlas(asset_server, &mut texture_atlas_layouts);
@@ -284,6 +286,21 @@ pub fn move_history_event_handler(
             .expect("Player could not be found via piece move in History")
             .to_index();
 
+        if let PieceMoveType::Promotion(promoted_to) = piece_move.move_type {
+            let piece_entity = board.get_entity(piece_move.from).unwrap();
+            let mut texture_atlas = texture_atlas_query.get_mut(piece_entity).unwrap();
+
+            let piece_type = if ev.backwards {
+                board.get_player_piece(PLAYERS[player_index], Piece::WPawn)
+            } else {
+                promoted_to
+            };
+
+            // Change the piece internally and its entity texture
+            board.set_piece(piece_move.from, piece_type);
+            texture_atlas.index = piece_type.to_bitboard_index();
+        }
+
         // Set the en_passant marker
         board.en_passant_on_last_move =
             if piece_move.move_type == PieceMoveType::EnPassant && !ev.backwards {
@@ -292,6 +309,8 @@ pub fn move_history_event_handler(
                 en_passant_tile
             };
 
+        // TODO I set these for both backwards and not backwards
+        // Set the castling rights
         if !ev.backwards {
             board.castling_rights = castling_rights;
         }
