@@ -6,7 +6,7 @@ use std::fmt;
 use crate::{
     board::{Board, TilePos},
     display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
-    piece::{Piece, PieceBundle},
+    piece::{Piece, PieceBundle, COLOUR_AMT},
     piece_move::{translate_piece_entity, PieceMove},
 };
 
@@ -21,6 +21,7 @@ pub struct HistoryMove {
     piece_move: PieceMove,
     captured_piece: Option<Piece>,
     en_passant_tile: Option<TilePos>,
+    castling_rights: [(bool, bool); COLOUR_AMT],
 }
 
 impl HistoryMove {
@@ -29,31 +30,56 @@ impl HistoryMove {
         piece_move: PieceMove,
         captured_piece: Option<Piece>,
         en_passant_tile: Option<TilePos>,
+        castling_rights: [(bool, bool); COLOUR_AMT],
     ) -> Self {
         Self {
             piece_move,
             captured_piece,
             en_passant_tile,
+            castling_rights,
         }
     }
 }
 
-impl From<(PieceMove, Option<Piece>, Option<TilePos>)> for HistoryMove {
-    fn from(value: (PieceMove, Option<Piece>, Option<TilePos>)) -> Self {
+impl
+    From<(
+        PieceMove,
+        Option<Piece>,
+        Option<TilePos>,
+        [(bool, bool); COLOUR_AMT],
+    )> for HistoryMove
+{
+    fn from(
+        value: (
+            PieceMove,
+            Option<Piece>,
+            Option<TilePos>,
+            [(bool, bool); COLOUR_AMT],
+        ),
+    ) -> Self {
         Self {
             piece_move: value.0,
             captured_piece: value.1,
             en_passant_tile: value.2,
+            castling_rights: value.3,
         }
     }
 }
 
-impl From<HistoryMove> for (PieceMove, Option<Piece>, Option<TilePos>) {
+impl From<HistoryMove>
+    for (
+        PieceMove,
+        Option<Piece>,
+        Option<TilePos>,
+        [(bool, bool); COLOUR_AMT],
+    )
+{
     fn from(value: HistoryMove) -> Self {
         (
             value.piece_move,
             value.captured_piece,
             value.en_passant_tile,
+            value.castling_rights,
         )
     }
 }
@@ -75,6 +101,7 @@ impl PieceMoveHistory {
         piece_move: PieceMove,
         captured_piece: Option<Piece>,
         en_passant_tile: Option<TilePos>,
+        castling_rights: [(bool, bool); COLOUR_AMT],
     ) {
         if piece_move.show {
             // Clear history depending on where current_idx is (if the move is different from the history)
@@ -85,12 +112,15 @@ impl PieceMoveHistory {
                 {
                     self.clear_excess_moves();
                 }
+            } else {
+                self.clear_excess_moves();
             }
 
             self.moves.push(HistoryMove::new(
                 piece_move,
                 captured_piece,
                 en_passant_tile,
+                castling_rights,
             ));
             let _ = self.increment_index();
         }
@@ -139,8 +169,12 @@ impl PieceMoveHistory {
     }
 
     pub fn clear_excess_moves(&mut self) {
-        self.moves = self.moves[0..=self.current_idx.unwrap_or(0)].to_vec();
-        self.current_idx = (!self.moves.is_empty()).then_some(self.moves.len() - 1);
+        if let Some(current_idx) = self.current_idx {
+            self.moves = self.moves[0..=current_idx].to_vec();
+            self.current_idx = (!self.moves.is_empty()).then_some(self.moves.len() - 1);
+        } else {
+            self.moves = vec![];
+        }
     }
 
     #[must_use]
@@ -234,7 +268,8 @@ pub fn move_history_event_handler(
             return;
         };
 
-        let (piece_move_original, captured_piece, en_passant_tile) = history_move.into();
+        let (piece_move_original, captured_piece, en_passant_tile, castling_rights) =
+            history_move.into();
 
         // Undo
         let piece_move = if ev.backwards {
@@ -250,6 +285,10 @@ pub fn move_history_event_handler(
             en_passant_tile
         };
 
+        if !ev.backwards {
+            board.castling_rights = castling_rights;
+        }
+
         let Some(piece_entity) = board.get_entity(piece_move.from) else {
             eprintln!(
                 "Entity not found: {}\t\t{:?}\t\t{:?}",
@@ -264,8 +303,6 @@ pub fn move_history_event_handler(
         translate_piece_entity(piece_entity, piece_move.to, &mut transform_query);
 
         if piece_move.castling {
-            println!("History: Castle Move");
-
             // Determine if this is kingside or queenside castling
             let file_diff = isize::try_from(piece_move_original.to.file).unwrap()
                 - isize::try_from(piece_move_original.from.file).unwrap();
@@ -301,7 +338,7 @@ pub fn move_history_event_handler(
             if let Some(rook_entity) = board.get_entity(rook_piece_move.to) {
                 translate_piece_entity(rook_entity, rook_piece_move.to, &mut transform_query);
             } else {
-                println!("No Rook Found");
+                eprintln!("No Rook Found");
             }
 
             // TODO TODO TODO TODO

@@ -236,9 +236,14 @@ pub fn piece_move_event_handler(
                     None
                 };
 
-                board
-                    .move_history
-                    .make_move(piece_move, captured_piece, en_passant_tile);
+                let castling_rights = board.castling_rights;
+
+                board.move_history.make_move(
+                    piece_move,
+                    captured_piece,
+                    en_passant_tile,
+                    castling_rights,
+                );
 
                 // Change background colour to show current move
                 board.next_player();
