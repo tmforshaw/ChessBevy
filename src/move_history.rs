@@ -385,7 +385,6 @@ pub fn move_history_event_handler(
             if let Some(_captured_piece) = captured_piece {
                 let captured_piece_tile = if piece_move.move_type == PieceMoveType::EnPassant {
                     // En passant capture
-
                     TilePos::new(piece_move.to.file, piece_move.from.rank)
                 } else {
                     // Normal capture
