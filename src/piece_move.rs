@@ -16,12 +16,19 @@ pub struct PieceMoveEvent {
     pub entity: Entity,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub enum PieceMoveType {
+    #[default]
+    Normal,
+    EnPassant,
+    Castling,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PieceMove {
     pub from: TilePos,
     pub to: TilePos,
-    pub en_passant_capture: bool,
-    pub castling: bool,
+    pub move_type: PieceMoveType,
     pub show: bool,
 }
 
@@ -31,8 +38,7 @@ impl PieceMove {
         Self {
             from,
             to,
-            en_passant_capture: false,
-            castling: false,
+            move_type: PieceMoveType::Normal,
             show: true,
         }
     }
@@ -42,19 +48,17 @@ impl PieceMove {
         Self {
             from: self.from,
             to: self.to,
-            en_passant_capture: self.en_passant_capture,
-            castling: self.castling,
+            move_type: self.move_type,
             show,
         }
     }
 
     #[must_use]
-    pub const fn with_castling(&self, castling: bool) -> Self {
+    pub const fn with_castling(&self) -> Self {
         Self {
             from: self.from,
             to: self.to,
-            en_passant_capture: self.en_passant_capture,
-            castling,
+            move_type: PieceMoveType::Castling,
             show: self.show,
         }
     }
@@ -64,8 +68,7 @@ impl PieceMove {
         Self {
             from: self.from,
             to: self.to,
-            en_passant_capture: true,
-            castling: self.castling,
+            move_type: PieceMoveType::EnPassant,
             show: self.show,
         }
     }
@@ -83,8 +86,7 @@ impl PieceMove {
         Self {
             from: self.to,
             to: self.from,
-            en_passant_capture: self.en_passant_capture,
-            castling: self.castling,
+            move_type: self.move_type,
             show: self.show,
         }
     }
@@ -94,8 +96,8 @@ impl std::fmt::Debug for PieceMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{from: {}, to: {}, show: {}, en_passant: {:?}}}",
-            self.from, self.to, self.show, self.en_passant_capture
+            "{{from: {}, to: {}, show: {}, move_type: {:?}}}",
+            self.from, self.to, self.show, self.move_type
         )
     }
 }
@@ -105,7 +107,7 @@ impl std::fmt::Display for PieceMove {
         write!(
             f,
             "{{{}, {}, {}, {:?}}}",
-            self.from, self.to, self.show, self.en_passant_capture
+            self.from, self.to, self.show, self.move_type
         )
     }
 }
@@ -209,7 +211,7 @@ pub fn piece_move_event_handler(
                 if moved_piece == board.get_player_king(board.get_player())
                     && file_diff_isize.unsigned_abs() == 2
                 {
-                    piece_move = piece_move.with_castling(true);
+                    piece_move = piece_move.with_castling();
 
                     fn move_rook_for_castle(
                         board: &mut Board,

@@ -7,7 +7,7 @@ use crate::{
     board::{Board, TilePos},
     display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
     piece::{Piece, PieceBundle, COLOUR_AMT},
-    piece_move::{translate_piece_entity, PieceMove},
+    piece_move::{translate_piece_entity, PieceMove, PieceMoveType},
 };
 
 #[derive(Error, Debug)]
@@ -285,11 +285,12 @@ pub fn move_history_event_handler(
             .to_index();
 
         // Set the en_passant marker
-        board.en_passant_on_last_move = if piece_move.en_passant_capture && !ev.backwards {
-            None
-        } else {
-            en_passant_tile
-        };
+        board.en_passant_on_last_move =
+            if piece_move.move_type == PieceMoveType::EnPassant && !ev.backwards {
+                None
+            } else {
+                en_passant_tile
+            };
 
         if !ev.backwards {
             board.castling_rights = castling_rights;
@@ -313,7 +314,7 @@ pub fn move_history_event_handler(
             board.castling_rights[player_index] = castling_rights[player_index];
         }
 
-        if piece_move.castling {
+        if piece_move.move_type == PieceMoveType::Castling {
             // Determine if this is kingside or queenside castling
             let file_diff = isize::try_from(piece_move_original.to.file).unwrap()
                 - isize::try_from(piece_move_original.from.file).unwrap();
@@ -359,7 +360,7 @@ pub fn move_history_event_handler(
             board.move_piece(piece_move.with_show(false));
 
             if let Some(captured_piece) = captured_piece {
-                let captured_piece_tile = if piece_move.en_passant_capture {
+                let captured_piece_tile = if piece_move.move_type == PieceMoveType::EnPassant {
                     // En passant capture
                     TilePos::new(piece_move_original.to.file, piece_move_original.from.rank)
                 } else {
@@ -382,7 +383,7 @@ pub fn move_history_event_handler(
         } else {
             // Need to delete captured pieces on redo
             if let Some(_captured_piece) = captured_piece {
-                let captured_piece_tile = if piece_move.en_passant_capture {
+                let captured_piece_tile = if piece_move.move_type == PieceMoveType::EnPassant {
                     // En passant capture
 
                     TilePos::new(piece_move.to.file, piece_move.from.rank)
