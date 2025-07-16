@@ -112,7 +112,7 @@ impl PieceMoveHistory {
                 {
                     self.clear_excess_moves();
                 }
-            } else {
+            } else if !self.moves.is_empty() {
                 self.clear_excess_moves();
             }
 
