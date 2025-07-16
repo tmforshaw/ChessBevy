@@ -7,7 +7,7 @@ use crate::{
     display::BOARD_SIZE,
     move_history::PieceMoveHistory,
     piece::{Piece, COLOUR_AMT, PIECES},
-    piece_move::{PieceMove, PieceMoveType},
+    piece_move::PieceMove,
     possible_moves::{get_possible_moves, get_pseudolegal_moves},
 };
 
