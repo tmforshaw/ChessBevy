@@ -400,40 +400,41 @@ impl Board {
         if let Some(player) = player {
             let player_index = player.to_index();
 
-            fn get_castling_pos(
-                board: &Board,
-                from: TilePos,
-                file: usize,
-                rank: usize,
-            ) -> Option<TilePos> {
+            fn get_castling_pos(board: &Board, from: TilePos, file: usize) -> Option<TilePos> {
                 // Get Rook Position
-                let rook = TilePos::new(file, rank);
+                let rook = TilePos::new(file, from.rank);
 
-                assert!(
-                    board.get_piece(rook) == Piece::WRook || board.get_piece(rook) == Piece::BRook,
-                    "Rook was not in expected position"
-                );
+                let player = board.get_piece(rook).to_player()?;
 
-                // Check that it is empty between the rook and the king
-                if board.is_empty_between(from, rook) {
-                    // Check that there are no attacked tiles between the rook and the king
-                    let tiles_between = board.get_tiles_between(from, rook);
+                // Ennsure that the king which is being moved is the current player's
+                if board.get_player() == player {
+                    assert!(
+                        board.get_piece(rook) == Piece::WRook
+                            || board.get_piece(rook) == Piece::BRook,
+                        "Rook was not in expected position"
+                    );
 
-                    let mut attacked_between = false;
-                    for tile in tiles_between {
-                        if board.is_pos_attacked(tile) {
-                            attacked_between = true;
-                            break;
+                    // Check that it is empty between the rook and the king
+                    if board.is_empty_between(from, rook) {
+                        // Check that there are no attacked tiles between the rook and the king
+                        let tiles_between = board.get_tiles_between(from, rook);
+
+                        let mut attacked_between = false;
+                        for tile in tiles_between {
+                            if board.is_pos_attacked(tile) {
+                                attacked_between = true;
+                                break;
+                            }
                         }
-                    }
 
-                    if !attacked_between {
-                        let new_file = if from.file < file {
-                            from.file - 2
-                        } else {
-                            from.file + 2
-                        };
-                        return Some(TilePos::new(new_file, rank));
+                        if !attacked_between {
+                            let new_file = if from.file > file {
+                                from.file - 2
+                            } else {
+                                from.file + 2
+                            };
+                            return Some(TilePos::new(new_file, from.rank));
+                        }
                     }
                 }
 
@@ -442,14 +443,14 @@ impl Board {
 
             // Kingside Castling
             if self.castling_rights[player_index].0 {
-                if let Some(pos) = get_castling_pos(self, from, BOARD_SIZE - 1, from.rank) {
+                if let Some(pos) = get_castling_pos(self, from, BOARD_SIZE - 1) {
                     positions.push(pos);
                 }
             }
 
             // Queenside Castling
             if self.castling_rights[player_index].1 {
-                if let Some(pos) = get_castling_pos(self, from, 0, from.rank) {
+                if let Some(pos) = get_castling_pos(self, from, 0) {
                     positions.push(pos);
                 }
             }
@@ -593,20 +594,18 @@ impl Board {
 
     #[must_use]
     pub fn get_tiles_between(&self, pos1: TilePos, pos2: TilePos) -> Vec<TilePos> {
-        assert!(
-            pos1.file == pos2.file || pos1.rank == pos2.rank,
-            "Tried to get tiles between non-orthogonal tiles",
-        );
+        if pos1.file == pos2.file || pos1.rank == pos2.rank {
+            return Vec::new();
+        }
 
         let file_diff_isize =
             isize::try_from(pos1.file).unwrap() - isize::try_from(pos2.file).unwrap();
         let rank_diff_isize =
             isize::try_from(pos1.rank).unwrap() - isize::try_from(pos2.rank).unwrap();
 
-        assert!(
-            file_diff_isize.unsigned_abs() > 1 || rank_diff_isize.unsigned_abs() > 1,
-            "Tried to get tiles between adjacent tiles"
-        );
+        if file_diff_isize.unsigned_abs() > 1 || rank_diff_isize.unsigned_abs() > 1 {
+            return Vec::new();
+        }
 
         let lower_pos = if file_diff_isize < 0 || rank_diff_isize < 0 {
             pos2
@@ -645,6 +644,30 @@ impl Board {
         match player {
             Player::White => Piece::WKing,
             Player::Black => Piece::BKing,
+        }
+    }
+
+    #[must_use]
+    pub const fn get_player_piece(&self, player: Player, piece: Piece) -> Piece {
+        match player {
+            Player::White => match piece {
+                Piece::WQueen | Piece::BQueen => Piece::WQueen,
+                Piece::WKing | Piece::BKing => Piece::WKing,
+                Piece::WRook | Piece::BRook => Piece::WRook,
+                Piece::WKnight | Piece::BKnight => Piece::WKnight,
+                Piece::WBishop | Piece::BBishop => Piece::WBishop,
+                Piece::WPawn | Piece::BPawn => Piece::WPawn,
+                Piece::None => Piece::None,
+            },
+            Player::Black => match piece {
+                Piece::WQueen | Piece::BQueen => Piece::BQueen,
+                Piece::WKing | Piece::BKing => Piece::BKing,
+                Piece::WRook | Piece::BRook => Piece::BRook,
+                Piece::WKnight | Piece::BKnight => Piece::BKnight,
+                Piece::WBishop | Piece::BBishop => Piece::BBishop,
+                Piece::WPawn | Piece::BPawn => Piece::BPawn,
+                Piece::None => Piece::None,
+            },
         }
     }
 

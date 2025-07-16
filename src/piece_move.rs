@@ -173,6 +173,35 @@ pub fn piece_move_event_handler(
                     piece_moved_to,
                 );
 
+                // Remember the castling rights before this move
+                let castling_rights_before_move = board.castling_rights;
+
+                // Handle castling rights
+                {
+                    let player_index = board.get_player().to_index();
+
+                    // Only update if the castling rights aren't already false
+                    if board.castling_rights[player_index] != (false, false) {
+                        // King was moved
+                        if moved_piece == board.get_player_king(board.get_player()) {
+                            board.castling_rights[player_index] = (false, false);
+                        }
+                        // Rook was moved
+                        else if moved_piece
+                            == board.get_player_piece(board.get_player(), Piece::WRook)
+                        {
+                            // Kingside
+                            if piece_move.from.file == BOARD_SIZE - 1 {
+                                board.castling_rights[player_index].0 = false;
+                            }
+                            // Queenside
+                            else if piece_move.from.file == 0 {
+                                board.castling_rights[player_index].1 = false;
+                            }
+                        }
+                    }
+                }
+
                 // Handle Castling
                 // If piece is this player's king, and the king moved 2 spaces
                 let file_diff_isize = isize::try_from(piece_move.to.file).unwrap()
@@ -181,11 +210,6 @@ pub fn piece_move_event_handler(
                     && file_diff_isize.unsigned_abs() == 2
                 {
                     piece_move = piece_move.with_castling(true);
-
-                    let player_index = board.get_player().to_index();
-
-                    board.castling_rights[player_index].0 = false;
-                    board.castling_rights[player_index].1 = false;
 
                     fn move_rook_for_castle(
                         board: &mut Board,
@@ -236,13 +260,11 @@ pub fn piece_move_event_handler(
                     None
                 };
 
-                let castling_rights = board.castling_rights;
-
                 board.move_history.make_move(
                     piece_move,
                     captured_piece,
                     en_passant_tile,
-                    castling_rights,
+                    castling_rights_before_move,
                 );
 
                 // Change background colour to show current move

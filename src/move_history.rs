@@ -302,6 +302,17 @@ pub fn move_history_event_handler(
         // Move Entity
         translate_piece_entity(piece_entity, piece_move.to, &mut transform_query);
 
+        // Reset the castling rights
+        if ev.backwards {
+            let player_index = board
+                .get_piece(piece_move.from)
+                .to_player()
+                .expect("Player could not be found via piece move in History")
+                .to_index();
+
+            board.castling_rights[player_index] = castling_rights[player_index];
+        }
+
         if piece_move.castling {
             // Determine if this is kingside or queenside castling
             let file_diff = isize::try_from(piece_move_original.to.file).unwrap()
@@ -349,15 +360,17 @@ pub fn move_history_event_handler(
                 .expect("Player could not be found via piece move in History")
                 .to_index();
 
-            if ev.backwards {
+            if !ev.backwards {
                 // TODO The history needs to remember the castling rights
-                board.castling_rights[player_index].0 = true;
-                board.castling_rights[player_index].1 = true;
-            } else {
+                // board.castling_rights[player_index].0 = true;
+                // board.castling_rights[player_index].1 = true;
+
+                // board.castling_rights[player_index] = castling_rights[player_index];
+                // }
+                // else {
                 // TODO need to make this reset whenever the king or rook has moved
                 // Set all castling to false
-                board.castling_rights[player_index].0 = false;
-                board.castling_rights[player_index].1 = false;
+                board.castling_rights[player_index] = (false, false);
             }
         }
 
