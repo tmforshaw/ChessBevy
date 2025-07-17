@@ -118,11 +118,11 @@ impl Default for Board {
 
         // const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
         // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
-
-        const DEFAULT_FEN: &str =
-            "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
-
+        // const DEFAULT_FEN: &str =
+        //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
         // const DEFAULT_FEN: &str = "8/1ppkp1P1/3pp3/8/8/5PP1/p2PPKP1/8 w - - 1 1"; // Promotion Test Board
+
+        const DEFAULT_FEN: &str = "rn1qk1nr/pPppppPp/8/8/8/8/PpPPPPpP/RN1QK1NR w KQkq - 0 1"; // Capture Promotion Corner
 
         match Self::from_fen(DEFAULT_FEN) {
             Ok(board) => board,
@@ -694,7 +694,7 @@ impl Board {
             for k in [-1, 1] {
                 let new_horizontal_pos = file_isize + k;
 
-                if new_horizontal_pos > 0 && new_horizontal_pos < board_size_isize {
+                if new_horizontal_pos >= 0 && new_horizontal_pos < board_size_isize {
                     if let Some(player) = piece.to_player() {
                         let new_pos = TilePos::new(
                             usize::try_from(new_horizontal_pos).ok()?,

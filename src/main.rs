@@ -29,9 +29,6 @@ pub mod piece;
 pub mod piece_move;
 pub mod possible_moves;
 
-// TODO There's a bug where I cant capture-promote to top-left tile
-// TODO Add stalemate
-
 fn main() {
     App::new()
         .add_plugins((
