@@ -77,7 +77,7 @@ impl BoardBevy {
             piece_move,
         );
 
-        // Move type was changed to promotion
+        // Update the entity texture to match the promoted piece
         if let PieceMoveType::Promotion(promoted_to) = piece_move.move_type {
             // Change the entity texture to the correct piece
             let piece_entity = self
@@ -101,6 +101,7 @@ impl BoardBevy {
         )
         .expect("Could not handle en passant in apply_move");
 
+        // Delete the captured piece's  entity
         if piece_move.move_type == PieceMoveType::EnPassant {
             // TODO this is duplicated
             // Get the captured piece type from the Board
@@ -252,7 +253,7 @@ impl BoardBevy {
 
                     // TODO This is duplicated code
                     // Move the rook (and its entity ID) internally
-                    self.move_piece_and_entity(PieceMove::new(rook_pos, new_rook_pos));
+                    self.move_entity(PieceMove::new(rook_pos, new_rook_pos));
                 }
             }
             PieceMoveType::Promotion(_) => {
@@ -299,7 +300,7 @@ impl BoardBevy {
         });
 
         // Move piece before spawning new entities, and also move entity translation
-        self.move_piece_and_entity(piece_move.rev().with_show(false));
+        self.move_piece_and_entity(piece_move.rev());
         translate_piece_entity(transform_query, piece_entity, piece_move.from);
 
         match piece_move.move_type {
@@ -346,6 +347,12 @@ impl BoardBevy {
     pub fn move_piece_and_entity(&mut self, piece_move: PieceMove) {
         self.board.move_piece(piece_move);
 
+        let moved_entity = self.get_entity(piece_move.from);
+        self.set_entity(piece_move.from, None);
+        self.set_entity(piece_move.to, moved_entity);
+    }
+
+    pub const fn move_entity(&mut self, piece_move: PieceMove) {
         let moved_entity = self.get_entity(piece_move.from);
         self.set_entity(piece_move.from, None);
         self.set_entity(piece_move.to, moved_entity);
