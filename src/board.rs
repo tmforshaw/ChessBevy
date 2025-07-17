@@ -249,7 +249,7 @@ impl Board {
         let moved_piece = self.get_piece(piece_move.from);
 
         // Handle promotion
-        piece_move = apply_promotion(self, moved_piece, piece_move, texture_atlas_query);
+        piece_move = apply_promotion(self, texture_atlas_query, moved_piece, piece_move);
 
         // Handle en passant, if this move is en passant, or if this move allows en passant on the next move
         let en_passant_tile;
@@ -276,7 +276,7 @@ impl Board {
         // Move the piece internally and update its entity translation
         self.move_piece(piece_move);
         let piece_entity = self.get_entity(piece_move.to).unwrap();
-        translate_piece_entity(piece_entity, piece_move.to, transform_query);
+        translate_piece_entity(transform_query, piece_entity, piece_move.to);
 
         // Check if this move has caused a checkmate
         if let Some(winning_player) = self.is_checkmate() {
@@ -348,7 +348,7 @@ impl Board {
 
         // Move piece before spawning new entities, and also move entity translation
         self.move_piece(piece_move.rev().with_show(false));
-        translate_piece_entity(piece_entity, piece_move.from, transform_query);
+        translate_piece_entity(transform_query, piece_entity, piece_move.from);
 
         match piece_move.move_type {
             PieceMoveType::Normal | PieceMoveType::EnPassant => {

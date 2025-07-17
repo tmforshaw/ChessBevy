@@ -165,15 +165,15 @@ pub fn piece_move_event_handler(
             );
         } else {
             // Reset position
-            translate_piece_entity(ev.entity, piece_move.from, &mut transform_query);
+            translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);
         }
     }
 }
 
 pub fn translate_piece_entity(
+    transform_query: &mut Query<&mut Transform>,
     piece_entity: Entity,
     pos: TilePos,
-    transform_query: &mut Query<&mut Transform>,
 ) {
     let mut transform = transform_query.get_mut(piece_entity).unwrap();
     let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
@@ -182,9 +182,9 @@ pub fn translate_piece_entity(
 
 pub fn apply_promotion(
     board: &mut Board,
+    texture_atlas_query: &mut Query<&mut TextureAtlas>,
     moved_piece: Piece,
     mut piece_move: PieceMove,
-    texture_atlas_query: &mut Query<&mut TextureAtlas>,
 ) -> PieceMove {
     // Pawn was moved onto final file (Player doesn't matter here since pawn cannot move backwards)
     if moved_piece == board.get_player_piece(board.get_player(), Piece::WPawn)
@@ -192,7 +192,7 @@ pub fn apply_promotion(
     {
         let promoted_to = match piece_move.move_type {
             PieceMoveType::Promotion(promoted_to) => promoted_to,
-            _ => board.get_player_piece(board.get_player(), Piece::WQueen),
+            _ => board.get_player_piece(board.get_player(), Piece::WQueen), // TODO Allow choosing which piece to promote to
         };
 
         piece_move = piece_move.with_promotion(promoted_to);
@@ -347,11 +347,11 @@ pub fn perform_castling(
 
             // Move the rook entity
             translate_piece_entity(
+                transform_query,
                 board
                     .get_entity(rook_pos)
                     .expect("Rook entity was not at Rook pos"),
                 new_rook_pos,
-                transform_query,
             );
 
             // Move the rook (and its entity ID) internally
