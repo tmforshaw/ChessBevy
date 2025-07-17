@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::{board::Player, display::BackgroundColourEvent};
+use chess_core::board::Player;
+
+use crate::display::BackgroundColourEvent;
 
 #[derive(Event)]
 pub struct GameEndEvent {

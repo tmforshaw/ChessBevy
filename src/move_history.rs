@@ -3,13 +3,13 @@ use thiserror::Error;
 
 use std::fmt;
 
-use crate::{
-    board::{Board, TilePos},
-    display::BackgroundColourEvent,
-    game_end::GameEndEvent,
+use chess_core::{
+    board::TilePos,
     piece::{Piece, COLOUR_AMT},
     piece_move::PieceMove,
 };
+
+use crate::{board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent};
 
 #[derive(Error, Debug)]
 pub enum MoveHistoryError {
@@ -251,7 +251,7 @@ pub struct MoveHistoryEvent {
 #[allow(clippy::too_many_arguments)]
 pub fn move_history_event_handler(
     mut move_history_ev: EventReader<MoveHistoryEvent>,
-    mut board: ResMut<Board>,
+    mut board: ResMut<BoardBevy>,
     mut transform_query: Query<&mut Transform>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
     mut game_end_ev: EventWriter<GameEndEvent>,
