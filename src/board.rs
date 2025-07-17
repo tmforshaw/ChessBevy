@@ -4,10 +4,14 @@ use bevy::prelude::*;
 
 use crate::{
     bitboard::BitBoards,
-    display::BOARD_SIZE,
-    move_history::PieceMoveHistory,
-    piece::{Piece, COLOUR_AMT, PIECES},
-    piece_move::PieceMove,
+    checkmate::CheckmateEvent,
+    display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
+    move_history::{HistoryMove, PieceMoveHistory},
+    piece::{Piece, PieceBundle, COLOUR_AMT, PIECES},
+    piece_move::{
+        apply_promotion, handle_castling, handle_en_passant, perform_castling, perform_promotion,
+        translate_piece_entity, PieceMove, PieceMoveType,
+    },
     possible_moves::{get_possible_moves, get_pseudolegal_moves},
 };
 
@@ -34,6 +38,13 @@ impl Player {
                 },
             )
             .expect("Could not find index of player: {self:?}")
+    }
+
+    pub const fn next_player(&self) -> Self {
+        match self {
+            Player::White => Player::Black,
+            Player::Black => Player::White,
+        }
     }
 }
 
@@ -210,6 +221,168 @@ impl Board {
         }
 
         Ok(board)
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn apply_move(
+        &mut self,
+        commands: &mut Commands,
+        transform_query: &mut Query<&mut Transform>,
+        texture_atlas_query: &mut Query<&mut TextureAtlas>,
+        background_ev: &mut EventWriter<BackgroundColourEvent>,
+        checkmate_ev: &mut EventWriter<CheckmateEvent>,
+        mut piece_move: PieceMove,
+    ) -> (PieceMove, Option<TilePos>, [(bool, bool); 2], Option<Piece>) {
+        let mut piece_captured = false;
+        let mut piece_moved_to = Piece::None;
+
+        // Capture any pieces that should be captured
+        if self.get_piece(piece_move.to) != Piece::None {
+            piece_captured = true;
+            let captured_entity = self.get_entity(piece_move.to).unwrap();
+
+            commands.entity(captured_entity).despawn();
+
+            piece_moved_to = self.get_piece(piece_move.to);
+        }
+
+        let moved_piece = self.get_piece(piece_move.from);
+
+        // Handle promotion
+        piece_move = apply_promotion(self, moved_piece, piece_move, texture_atlas_query);
+
+        // Handle en passant, if this move is en passant, or if this move allows en passant on the next move
+        let en_passant_tile;
+        (en_passant_tile, piece_move, piece_captured, piece_moved_to) = handle_en_passant(
+            self,
+            commands,
+            piece_move,
+            moved_piece,
+            piece_captured,
+            piece_moved_to,
+        );
+
+        // Handle Castling
+        let castling_rights_before_move;
+        (castling_rights_before_move, piece_move) =
+            handle_castling(self, transform_query, piece_move, moved_piece);
+
+        let captured_piece = if piece_captured {
+            Some(piece_moved_to)
+        } else {
+            None
+        };
+
+        // Move the piece internally and update its entity translation
+        self.move_piece(piece_move);
+        let piece_entity = self.get_entity(piece_move.to).unwrap();
+        translate_piece_entity(piece_entity, piece_move.to, transform_query);
+
+        // Check if this move has caused a checkmate
+        if let Some(winning_player) = self.is_checkmate() {
+            checkmate_ev.send(CheckmateEvent::new(winning_player));
+        } else {
+            // Change background colour to show current player
+            self.next_player();
+            background_ev.send(BackgroundColourEvent::new_from_player(self.get_player()));
+        }
+
+        (
+            piece_move,
+            en_passant_tile,
+            castling_rights_before_move,
+            captured_piece,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn undo_move(
+        &mut self,
+        commands: &mut Commands,
+        asset_server: &Res<AssetServer>,
+        texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
+        transform_query: &mut Query<&mut Transform>,
+        texture_atlas_query: &mut Query<&mut TextureAtlas>,
+        background_ev: &mut EventWriter<BackgroundColourEvent>,
+        history_move: HistoryMove,
+    ) {
+        let (piece_move, captured_piece, en_passant_tile, castling_rights) = history_move.into();
+
+        // Set the castling rights
+        self.castling_rights = castling_rights;
+
+        // Set the en_passant marker
+        self.en_passant_on_last_move = en_passant_tile;
+
+        // Perform the correct move for the move_type
+        match piece_move.move_type {
+            PieceMoveType::Castling => {
+                // Perform the castling
+                let moved_piece = self.get_piece(piece_move.to);
+                perform_castling(self, transform_query, piece_move, moved_piece, true);
+            }
+            PieceMoveType::Promotion(_) => {
+                // Get the piece's player as an index
+                let player_index = self
+                    .get_piece(piece_move.to)
+                    .to_player()
+                    .expect("Player could not be found via piece move in History")
+                    .to_index();
+
+                // Get this player's pawn type
+                let new_piece_type = self.get_player_piece(PLAYERS[player_index], Piece::WPawn);
+
+                perform_promotion(self, texture_atlas_query, piece_move.to, new_piece_type);
+            }
+            _ => {}
+        }
+
+        let piece_entity = self.get_entity(piece_move.to).unwrap_or_else(|| {
+            panic!(
+                "Entity not found for undo: {}\t\t{:?}\t\t{:?}",
+                piece_move.rev(),
+                self.get_entity(piece_move.to),
+                self.move_history.current_idx
+            )
+        });
+
+        // Move piece before spawning new entities, and also move entity translation
+        self.move_piece(piece_move.rev().with_show(false));
+        translate_piece_entity(piece_entity, piece_move.from, transform_query);
+
+        match piece_move.move_type {
+            PieceMoveType::Normal | PieceMoveType::EnPassant => {
+                // Create new entities for any captured pieces
+                if let Some(captured_piece) = captured_piece {
+                    // Set the captured piece tile, depending on if this capture was an en passant capture or not
+                    let captured_piece_tile = if piece_move.move_type == PieceMoveType::EnPassant {
+                        TilePos::new(piece_move.to.file, piece_move.from.rank)
+                    } else {
+                        piece_move.to
+                    };
+
+                    let (texture, texture_atlas_layout) =
+                        get_texture_atlas(asset_server, texture_atlas_layouts);
+
+                    // Create new entity for the captured piece
+                    let captured_entity = commands.spawn(PieceBundle::new(
+                        captured_piece_tile.into(),
+                        captured_piece,
+                        texture.clone(),
+                        texture_atlas_layout.clone(),
+                    ));
+
+                    // Update the board to make it aware of the spawned piece
+                    self.set_piece(captured_piece_tile, captured_piece);
+                    self.set_entity(captured_piece_tile, Some(captured_entity.id()));
+                }
+            }
+            _ => {}
+        }
+
+        // Change background colour to show current player
+        self.next_player();
+        background_ev.send(BackgroundColourEvent::new_from_player(self.get_player()));
     }
 
     pub fn move_piece(&mut self, piece_move: PieceMove) {
@@ -404,37 +577,26 @@ impl Board {
                 // Get Rook Position
                 let rook = TilePos::new(file, from.rank);
 
-                let player = board.get_piece(rook).to_player()?;
+                // Check that it is empty between the rook and the king
+                if board.is_empty_between(from, rook) {
+                    // Check that there are no attacked tiles between the rook and the king
+                    let tiles_between = board.get_tiles_between(from, rook);
 
-                // Ennsure that the king which is being moved is the current player's
-                if board.get_player() == player {
-                    assert!(
-                        board.get_piece(rook) == Piece::WRook
-                            || board.get_piece(rook) == Piece::BRook,
-                        "Rook was not in expected position"
-                    );
-
-                    // Check that it is empty between the rook and the king
-                    if board.is_empty_between(from, rook) {
-                        // Check that there are no attacked tiles between the rook and the king
-                        let tiles_between = board.get_tiles_between(from, rook);
-
-                        let mut attacked_between = false;
-                        for tile in tiles_between {
-                            if board.is_pos_attacked(tile) {
-                                attacked_between = true;
-                                break;
-                            }
+                    let mut attacked_between = false;
+                    for tile in tiles_between {
+                        if board.is_pos_attacked(tile) {
+                            attacked_between = true;
+                            break;
                         }
+                    }
 
-                        if !attacked_between {
-                            let new_file = if from.file > file {
-                                from.file - 2
-                            } else {
-                                from.file + 2
-                            };
-                            return Some(TilePos::new(new_file, from.rank));
-                        }
+                    if !attacked_between {
+                        let new_file = if from.file > file {
+                            from.file - 2
+                        } else {
+                            from.file + 2
+                        };
+                        return Some(TilePos::new(new_file, from.rank));
                     }
                 }
 
@@ -677,15 +839,19 @@ impl Board {
     }
 
     #[must_use]
-    pub fn is_checkmate(&self) -> bool {
+    pub fn is_checkmate(&self) -> Option<Player> {
         // Get the position of all kings
-        for king_pos in PLAYERS.iter().map(|&player| self.get_king_pos(player)) {
+        for (player, king_pos) in PLAYERS
+            .iter()
+            .map(|&player| (player, self.get_king_pos(player)))
+        {
             // King is in check, and has no moves
             if self.is_pos_attacked(king_pos) && get_possible_moves(self, king_pos).is_empty() {
-                return true;
+                let opposite_player = player.next_player();
+                return Some(opposite_player);
             }
         }
 
-        false
+        None
     }
 }

@@ -135,105 +135,37 @@ pub fn piece_move_event_handler(
     for ev in ev_piece_move.read() {
         let mut piece_move = ev.piece_move;
 
-        // Entity Logic
-        let mut piece_captured = false;
-        let move_complete;
+        // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
+        if !board.get_piece(piece_move.to).is_player(board.player)
+            && board.get_piece(piece_move.from).is_player(board.player)
+            && get_possible_moves(&board, piece_move.from).contains(&piece_move.to)
         {
-            let moved_to = board.get_piece(piece_move.to);
+            // Apply the move to the board
+            let (en_passant_tile, castling_rights_before_move, captured_piece);
+            (
+                piece_move,
+                en_passant_tile,
+                castling_rights_before_move,
+                captured_piece,
+            ) = board.apply_move(
+                &mut commands,
+                &mut transform_query,
+                &mut texture_atlas_query,
+                &mut background_ev,
+                &mut checkmate_ev,
+                piece_move,
+            );
 
-            // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
-            let pos = if !moved_to.is_player(board.player)
-                && board.get_piece(piece_move.from).is_player(board.player)
-                && get_possible_moves(&board, piece_move.from).contains(&piece_move.to)
-            {
-                // Need to capture
-                if moved_to != Piece::None {
-                    piece_captured = true;
-                    let captured_entity = board.get_entity(piece_move.to).unwrap();
-
-                    commands.entity(captured_entity).despawn();
-                }
-
-                move_complete = true;
-                piece_move.to
-            } else {
-                // Reset position
-                move_complete = false;
-                piece_move.from
-            };
-
-            translate_piece_entity(ev.entity, pos, &mut transform_query);
-        }
-
-        // Board Logic
-        if (move_complete && piece_move.show) || (!move_complete && !piece_move.show) {
-            if piece_move.show {
-                let mut piece_moved_to = if piece_captured {
-                    board.get_piece(piece_move.to)
-                } else {
-                    Piece::None
-                };
-
-                let moved_piece = board.get_piece(piece_move.from);
-
-                // Handle promotion
-
-                // Pawn was moved onto final file (Player doesn't matter here since pawn cannot move backwards)
-                if moved_piece == board.get_player_piece(board.get_player(), Piece::WPawn)
-                    && (piece_move.to.rank == BOARD_SIZE - 1 || piece_move.to.rank == 0)
-                {
-                    let promoted_to = board.get_player_piece(board.get_player(), Piece::WQueen);
-
-                    piece_move = piece_move.with_promotion(promoted_to);
-
-                    // Change the type of the piece in the internal board
-                    board.set_piece(piece_move.from, promoted_to);
-
-                    // Change the entity texture to the correct piece
-                    let mut texture_atlas = texture_atlas_query.get_mut(ev.entity).unwrap();
-                    texture_atlas.index = promoted_to.to_bitboard_index();
-                }
-
-                // Handle en passant, if this move is en passant, or if this move allows en passant on the next move
-                let en_passant_tile;
-                (en_passant_tile, piece_move, piece_captured, piece_moved_to) = handle_en_passant(
-                    &mut board,
-                    &mut commands,
-                    piece_move,
-                    moved_piece,
-                    piece_captured,
-                    piece_moved_to,
-                );
-
-                // Handle Castling
-                let castling_rights_before_move;
-                (castling_rights_before_move, piece_move) =
-                    handle_castling(&mut board, &mut transform_query, piece_move, moved_piece);
-
-                let captured_piece = if piece_captured {
-                    Some(piece_moved_to)
-                } else {
-                    None
-                };
-
-                board.move_history.make_move(
-                    piece_move,
-                    captured_piece,
-                    en_passant_tile,
-                    castling_rights_before_move,
-                );
-
-                // Change background colour to show current move
-                board.next_player();
-                background_ev.send(BackgroundColourEvent::new_from_player(board.get_player()));
-            }
-
-            board.move_piece(piece_move);
-        }
-
-        // Check if this move has caused a checkmate
-        if board.is_checkmate() {
-            checkmate_ev.send(CheckmateEvent::new(board.get_player()));
+            // Update the move history with this move
+            board.move_history.make_move(
+                piece_move,
+                captured_piece,
+                en_passant_tile,
+                castling_rights_before_move,
+            );
+        } else {
+            // Reset position
+            translate_piece_entity(ev.entity, piece_move.from, &mut transform_query);
         }
     }
 }
@@ -248,8 +180,46 @@ pub fn translate_piece_entity(
     transform.translation = Vec3::new(x, y, 1.);
 }
 
+pub fn apply_promotion(
+    board: &mut Board,
+    moved_piece: Piece,
+    mut piece_move: PieceMove,
+    texture_atlas_query: &mut Query<&mut TextureAtlas>,
+) -> PieceMove {
+    // Pawn was moved onto final file (Player doesn't matter here since pawn cannot move backwards)
+    if moved_piece == board.get_player_piece(board.get_player(), Piece::WPawn)
+        && (piece_move.to.rank == BOARD_SIZE - 1 || piece_move.to.rank == 0)
+    {
+        let promoted_to = match piece_move.move_type {
+            PieceMoveType::Promotion(promoted_to) => promoted_to,
+            _ => board.get_player_piece(board.get_player(), Piece::WQueen),
+        };
+
+        piece_move = piece_move.with_promotion(promoted_to);
+
+        perform_promotion(board, texture_atlas_query, piece_move.from, promoted_to);
+    }
+
+    piece_move
+}
+
+pub fn perform_promotion(
+    board: &mut Board,
+    texture_atlas_query: &mut Query<&mut TextureAtlas>,
+    from: TilePos,
+    new_piece_type: Piece,
+) {
+    // Change the type of the piece in the internal board
+    board.set_piece(from, new_piece_type);
+
+    // Change the entity texture to the correct piece
+    let piece_entity = board.get_entity(from).unwrap();
+    let mut texture_atlas = texture_atlas_query.get_mut(piece_entity).unwrap();
+    texture_atlas.index = new_piece_type.to_bitboard_index();
+}
+
 // Returns the en_passant tile for this move
-fn handle_en_passant(
+pub fn handle_en_passant(
     board: &mut Board,
     commands: &mut Commands,
     mut piece_move: PieceMove,
@@ -339,11 +309,24 @@ pub fn handle_castling(
         }
     }
 
+    piece_move = perform_castling(board, transform_query, piece_move, moved_piece, false);
+
+    (castling_rights_before_move, piece_move)
+}
+
+pub fn perform_castling(
+    board: &mut Board,
+    transform_query: &mut Query<&mut Transform>,
+    mut piece_move: PieceMove,
+    moved_piece: Piece,
+    undo: bool,
+) -> PieceMove {
     // If piece is this player's king, and the king moved 2 spaces
     let file_diff_isize = isize::try_from(piece_move.to.file).unwrap()
         - isize::try_from(piece_move.from.file).unwrap();
     if moved_piece == board.get_player_king(board.get_player())
         && file_diff_isize.unsigned_abs() == 2
+        || undo
     {
         piece_move = piece_move.with_castling();
 
@@ -353,9 +336,14 @@ pub fn handle_castling(
             file: usize,
             new_file: usize,
             from_rank: usize,
+            undo: bool,
         ) {
-            let rook_pos = TilePos::new(file, from_rank);
-            let new_rook_pos = TilePos::new(new_file, rook_pos.rank);
+            let mut rook_pos = TilePos::new(file, from_rank);
+            let mut new_rook_pos = TilePos::new(new_file, rook_pos.rank);
+
+            if undo {
+                std::mem::swap(&mut rook_pos, &mut new_rook_pos);
+            }
 
             // Move the rook entity
             translate_piece_entity(
@@ -378,11 +366,12 @@ pub fn handle_castling(
                 BOARD_SIZE - 1,
                 BOARD_SIZE - 3,
                 piece_move.from.rank,
+                undo,
             );
         } else {
-            move_rook_for_castle(board, transform_query, 0, 3, piece_move.from.rank);
+            move_rook_for_castle(board, transform_query, 0, 3, piece_move.from.rank, undo);
         }
     }
 
-    (castling_rights_before_move, piece_move)
+    piece_move
 }

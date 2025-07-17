@@ -72,14 +72,17 @@ pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
 
 #[must_use]
 pub fn get_possible_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
-    let king_pos = board.get_king_pos(board.get_player());
+    let player = board.get_piece(from).to_player().unwrap();
 
     // Don't allow moves which cause the king to be attacked
     get_pseudolegal_moves(board, from)
         .into_iter()
         .filter(|&move_to_pos| {
             // Ensure that move won't cause the king to be attacked
-            !board.move_makes_pos_attacked(PieceMove::new(from, move_to_pos), king_pos)
+            !board.move_makes_pos_attacked(PieceMove::new(from, move_to_pos), board.get_king_pos(player))
+            // Ensure that the piece cant capture its own piece
+           && board.get_piece(move_to_pos).to_player()
+                != Some(player)
         })
         .collect::<Vec<_>>()
 }

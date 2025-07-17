@@ -4,10 +4,11 @@ use thiserror::Error;
 use std::fmt;
 
 use crate::{
-    board::{Board, TilePos, PLAYERS},
-    display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
-    piece::{Piece, PieceBundle, COLOUR_AMT},
-    piece_move::{translate_piece_entity, PieceMove, PieceMoveType},
+    board::{Board, TilePos},
+    checkmate::CheckmateEvent,
+    display::BackgroundColourEvent,
+    piece::{Piece, COLOUR_AMT},
+    piece_move::PieceMove,
 };
 
 #[derive(Error, Debug)]
@@ -86,8 +87,8 @@ impl From<HistoryMove>
 
 #[derive(Default, Clone, Debug)]
 pub struct PieceMoveHistory {
-    moves: Vec<HistoryMove>,
-    current_idx: Option<usize>,
+    pub moves: Vec<HistoryMove>,
+    pub current_idx: Option<usize>,
 }
 
 impl PieceMoveHistory {
@@ -249,14 +250,12 @@ pub fn move_history_event_handler(
     mut board: ResMut<Board>,
     mut transform_query: Query<&mut Transform>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
+    mut checkmate_ev: EventWriter<CheckmateEvent>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut texture_atlas_query: Query<&mut TextureAtlas>,
 ) {
-    let (texture, texture_atlas_layout) =
-        get_texture_atlas(asset_server, &mut texture_atlas_layouts);
-
     for ev in move_history_ev.read() {
         // Traverse the history in the specified direction
         let piece_move_history = if ev.backwards {
@@ -270,151 +269,27 @@ pub fn move_history_event_handler(
             return;
         };
 
-        let (piece_move_original, captured_piece, en_passant_tile, castling_rights) =
-            history_move.into();
+        if !ev.backwards {
+            let (piece_move_original, _, _, _) = history_move.into();
 
-        // Undo
-        let piece_move = if ev.backwards {
-            piece_move_original.rev()
-        } else {
-            piece_move_original
-        };
-
-        let player_index = board
-            .get_piece(piece_move.from)
-            .to_player()
-            .expect("Player could not be found via piece move in History")
-            .to_index();
-
-        if let PieceMoveType::Promotion(promoted_to) = piece_move.move_type {
-            let piece_entity = board.get_entity(piece_move.from).unwrap();
-            let mut texture_atlas = texture_atlas_query.get_mut(piece_entity).unwrap();
-
-            let piece_type = if ev.backwards {
-                board.get_player_piece(PLAYERS[player_index], Piece::WPawn)
-            } else {
-                promoted_to
-            };
-
-            // Change the piece internally and its entity texture
-            board.set_piece(piece_move.from, piece_type);
-            texture_atlas.index = piece_type.to_bitboard_index();
-        }
-
-        // Set the en_passant marker
-        board.en_passant_on_last_move =
-            if piece_move.move_type == PieceMoveType::EnPassant && !ev.backwards {
-                None
-            } else {
-                en_passant_tile
-            };
-
-        // Set the castling rights
-        board.castling_rights = castling_rights;
-
-        let Some(piece_entity) = board.get_entity(piece_move.from) else {
-            eprintln!(
-                "Entity not found: {}\t\t{:?}\t\t{:?}",
-                piece_move,
-                board.get_entity(piece_move.from),
-                board.move_history.current_idx
+            let _ = board.apply_move(
+                &mut commands,
+                &mut transform_query,
+                &mut texture_atlas_query,
+                &mut background_ev,
+                &mut checkmate_ev,
+                piece_move_original,
             );
-            panic!()
-        };
-
-        // Move Entity
-        translate_piece_entity(piece_entity, piece_move.to, &mut transform_query);
-
-        if piece_move.move_type == PieceMoveType::Castling {
-            // Determine if this is kingside or queenside castling
-            let file_diff = isize::try_from(piece_move_original.to.file).unwrap()
-                - isize::try_from(piece_move_original.from.file).unwrap();
-
-            // Get the position the rook is at before and after a castle in this direction
-            let (before_castling_rook_pos, after_castling_rook_pos) = if file_diff > 0 {
-                (
-                    TilePos::new(BOARD_SIZE - 1, piece_move_original.from.rank),
-                    TilePos::new(BOARD_SIZE - 3, piece_move_original.from.rank),
-                )
-            } else {
-                (
-                    TilePos::new(0, piece_move_original.from.rank),
-                    TilePos::new(3, piece_move_original.from.rank),
-                )
-            };
-
-            // Create a piece move from the rook's position
-            let rook_piece_move =
-                PieceMove::new(before_castling_rook_pos, after_castling_rook_pos).with_show(false);
-
-            // Reverse the piece move if we are undo-ing
-            let rook_piece_move = if ev.backwards {
-                rook_piece_move.rev()
-            } else {
-                rook_piece_move
-            };
-
-            // Move the rook internally
-            board.move_piece(rook_piece_move.with_show(false));
-
-            // Translate the rook's entity
-            if let Some(rook_entity) = board.get_entity(rook_piece_move.to) {
-                translate_piece_entity(rook_entity, rook_piece_move.to, &mut transform_query);
-            } else {
-                eprintln!("No Rook Found");
-            }
-        }
-
-        // Only create a piece for a captured piece when undo-ing moves
-        if ev.backwards {
-            // Move piece before spawning new entities
-            board.move_piece(piece_move.with_show(false));
-
-            if let Some(captured_piece) = captured_piece {
-                let captured_piece_tile = if piece_move.move_type == PieceMoveType::EnPassant {
-                    // En passant capture
-                    TilePos::new(piece_move_original.to.file, piece_move_original.from.rank)
-                } else {
-                    // Normal capture
-                    piece_move_original.to
-                };
-
-                // Create new entity for the captured piece
-                let captured_entity = commands.spawn(PieceBundle::new(
-                    captured_piece_tile.into(),
-                    captured_piece,
-                    texture.clone(),
-                    texture_atlas_layout.clone(),
-                ));
-
-                // Update the board to make it aware of the spawned piece
-                board.set_piece(captured_piece_tile, captured_piece);
-                board.set_entity(captured_piece_tile, Some(captured_entity.id()));
-            }
         } else {
-            // Need to delete captured pieces on redo
-            if let Some(_captured_piece) = captured_piece {
-                let captured_piece_tile = if piece_move.move_type == PieceMoveType::EnPassant {
-                    // En passant capture
-                    TilePos::new(piece_move.to.file, piece_move.from.rank)
-                } else {
-                    // Normal capture
-                    piece_move.to
-                };
-
-                if let Some(captured_entity) = board.get_entity(captured_piece_tile) {
-                    // Despawn the entity which was captured on this turn (Don't need to modify bitboards since board.move_piece will overwrite it anyway)
-                    commands.entity(captured_entity).despawn();
-                    board.set_entity(captured_piece_tile, None);
-                }
-            }
-
-            // Move piece after deleting captured entities
-            board.move_piece(piece_move.with_show(false));
+            board.undo_move(
+                &mut commands,
+                &asset_server,
+                &mut texture_atlas_layouts,
+                &mut transform_query,
+                &mut texture_atlas_query,
+                &mut background_ev,
+                history_move,
+            );
         }
-
-        // Change background colour to show current move
-        board.next_player();
-        background_ev.send(BackgroundColourEvent::new_from_player(board.get_player()));
     }
 }

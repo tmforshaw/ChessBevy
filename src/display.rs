@@ -61,7 +61,7 @@ pub fn display_board(
     }
 
     let (texture, texture_atlas_layout) =
-        get_texture_atlas(asset_server, &mut texture_atlas_layouts);
+        get_texture_atlas(&asset_server, &mut texture_atlas_layouts);
 
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
@@ -81,7 +81,7 @@ pub fn display_board(
 }
 
 pub fn get_texture_atlas(
-    asset_server: Res<AssetServer>,
+    asset_server: &AssetServer,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) -> (
     bevy::prelude::Handle<Image>,
