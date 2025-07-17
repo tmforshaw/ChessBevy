@@ -5,8 +5,8 @@ use std::fmt;
 
 use crate::{
     board::{Board, TilePos},
-    checkmate::CheckmateEvent,
     display::BackgroundColourEvent,
+    game_end::GameEndEvent,
     piece::{Piece, COLOUR_AMT},
     piece_move::PieceMove,
 };
@@ -254,7 +254,7 @@ pub fn move_history_event_handler(
     mut board: ResMut<Board>,
     mut transform_query: Query<&mut Transform>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
-    mut checkmate_ev: EventWriter<CheckmateEvent>,
+    mut game_end_ev: EventWriter<GameEndEvent>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -291,7 +291,7 @@ pub fn move_history_event_handler(
                 &mut transform_query,
                 &mut texture_atlas_query,
                 &mut background_ev,
-                &mut checkmate_ev,
+                &mut game_end_ev,
                 piece_move_original,
             );
         }

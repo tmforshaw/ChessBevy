@@ -4,8 +4,8 @@ use bevy::prelude::*;
 
 use crate::{
     board::{Board, TilePos},
-    checkmate::CheckmateEvent,
     display::{translate_piece_entity, BackgroundColourEvent, BOARD_SIZE},
+    game_end::GameEndEvent,
     piece::{Piece, COLOUR_AMT},
     possible_moves::get_possible_moves,
 };
@@ -132,7 +132,7 @@ pub fn piece_move_event_handler(
     mut texture_atlas_query: Query<&mut TextureAtlas>,
     mut board: ResMut<Board>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
-    mut checkmate_ev: EventWriter<CheckmateEvent>,
+    mut game_end_ev: EventWriter<GameEndEvent>,
 ) {
     for ev in ev_piece_move.read() {
         let mut piece_move = ev.piece_move;
@@ -155,7 +155,7 @@ pub fn piece_move_event_handler(
                     &mut transform_query,
                     &mut texture_atlas_query,
                     &mut background_ev,
-                    &mut checkmate_ev,
+                    &mut game_end_ev,
                     piece_move,
                 );
 

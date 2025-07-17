@@ -11,8 +11,8 @@ use bevy_mod_picking::prelude::*;
 use crate::{
     bitboard::{bitboard_event_handler, BitBoardDisplayEvent},
     board::Board,
-    checkmate::{checkmate_event_handler, CheckmateEvent},
     display::{background_colour_event_handler, display_board, BackgroundColourEvent},
+    game_end::{game_end_event_handler, GameEndEvent},
     keyboard::{keyboard_event_handler, KeyboardState},
     move_history::{move_history_event_handler, MoveHistoryEvent},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
@@ -21,8 +21,8 @@ use crate::{
 
 pub mod bitboard;
 pub mod board;
-pub mod checkmate;
 pub mod display;
+pub mod game_end;
 pub mod keyboard;
 pub mod move_history;
 pub mod piece;
@@ -61,7 +61,7 @@ fn main() {
                 keyboard_event_handler,
                 background_colour_event_handler,
                 move_history_event_handler,
-                checkmate_event_handler,
+                game_end_event_handler,
             ),
         )
         .add_event::<PieceMoveEvent>()
@@ -69,7 +69,7 @@ fn main() {
         .add_event::<PossibleMoveDisplayEvent>()
         .add_event::<BackgroundColourEvent>()
         .add_event::<MoveHistoryEvent>()
-        .add_event::<CheckmateEvent>()
+        .add_event::<GameEndEvent>()
         .run();
 }
 

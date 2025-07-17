@@ -4,8 +4,8 @@ use bevy::prelude::*;
 
 use crate::{
     bitboard::BitBoards,
-    checkmate::CheckmateEvent,
     display::{get_texture_atlas, translate_piece_entity, BackgroundColourEvent, BOARD_SIZE},
+    game_end::GameEndEvent,
     move_history::{HistoryMove, PieceMoveHistory},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECES},
     piece_move::{
@@ -240,7 +240,7 @@ impl Board {
         transform_query: &mut Query<&mut Transform>,
         texture_atlas_query: &mut Query<&mut TextureAtlas>,
         background_ev: &mut EventWriter<BackgroundColourEvent>,
-        checkmate_ev: &mut EventWriter<CheckmateEvent>,
+        game_end_ev: &mut EventWriter<GameEndEvent>,
         mut piece_move: PieceMove,
     ) -> (PieceMove, Option<TilePos>, [(bool, bool); 2], Option<Piece>) {
         let mut piece_captured = false;
@@ -298,9 +298,10 @@ impl Board {
         });
         translate_piece_entity(transform_query, piece_entity, piece_move.to);
 
-        // Check if this move has caused a checkmate
-        if let Some(winning_player) = self.is_checkmate() {
-            checkmate_ev.send(CheckmateEvent::new(winning_player));
+        // Check if this move has caused the game to end
+        if let Some(winning_player) = self.has_game_ended() {
+            // Game ended via checkmate or stalemate
+            game_end_ev.send(GameEndEvent::new(winning_player));
         } else {
             // Change background colour to show current player
             self.next_player();
@@ -464,6 +465,22 @@ impl Board {
 
     pub const fn next_player(&mut self) {
         self.player = self.get_next_player();
+    }
+
+    pub fn get_all_player_pieces(&self, player: Player) -> Vec<TilePos> {
+        self.positions
+            .boards
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &board)| {
+                if Piece::from(i).to_player() == Some(player) {
+                    Some(board.get_positions())
+                } else {
+                    None
+                }
+            })
+            .flat_map(IntoIterator::into_iter)
+            .collect::<Vec<_>>()
     }
 
     fn get_moves_in_dir(&self, from: TilePos, dirs: Vec<(isize, isize)>) -> Option<Vec<TilePos>> {
@@ -740,14 +757,9 @@ impl Board {
 
     #[must_use]
     pub fn is_pos_attacked(&self, pos: TilePos) -> bool {
-        self.get_piece(pos).to_player().map_or_else(
-            || {
-                // Don't bother to check for Piece::None
-                eprintln!("Tried to check if Piece::None was attacked");
-                false
-            },
-            |player| self.get_attacked_tiles(player).contains(&pos),
-        )
+        self.get_piece(pos)
+            .to_player()
+            .is_some_and(|player| self.get_attacked_tiles(player).contains(&pos))
     }
 
     #[must_use]
@@ -779,28 +791,28 @@ impl Board {
 
     #[must_use]
     pub fn get_tiles_between(&self, pos1: TilePos, pos2: TilePos) -> Option<Vec<TilePos>> {
-        if pos1.file == pos2.file || pos1.rank == pos2.rank {
-            return Some(Vec::new());
+        if pos1.file == pos2.file && pos1.rank == pos2.rank {
+            return None;
         }
 
         let file_diff_isize = isize::try_from(pos1.file).ok()? - isize::try_from(pos2.file).ok()?;
         let rank_diff_isize = isize::try_from(pos1.rank).ok()? - isize::try_from(pos2.rank).ok()?;
 
-        if file_diff_isize.unsigned_abs() > 1 || rank_diff_isize.unsigned_abs() > 1 {
-            return Some(Vec::new());
+        if file_diff_isize.unsigned_abs() > 0 && rank_diff_isize.unsigned_abs() > 0 {
+            return None;
         }
 
         let lower_pos = if file_diff_isize < 0 || rank_diff_isize < 0 {
-            pos2
-        } else {
             pos1
+        } else {
+            pos2
         };
 
         let file_diff = usize::from(file_diff_isize != 0);
         let rank_diff = usize::from(rank_diff_isize != 0);
 
         Some(
-            (1..((file_diff).max(rank_diff)))
+            (1..((file_diff_isize.unsigned_abs()).max(rank_diff_isize.unsigned_abs())))
                 .map(|k| {
                     TilePos::new(
                         lower_pos.file + k * file_diff,
@@ -818,7 +830,7 @@ impl Board {
         };
 
         for tile in tiles_between {
-            if self.get_piece(tile) == Piece::None {
+            if self.get_piece(tile) != Piece::None {
                 return false;
             }
         }
@@ -864,19 +876,29 @@ impl Board {
     }
 
     #[must_use]
-    pub fn is_checkmate(&self) -> Option<Player> {
+    pub fn has_game_ended(&self) -> Option<Option<Player>> {
         // Get the position of all kings
         for (player, king_pos) in PLAYERS
             .iter()
             .map(|&player| (player, self.get_king_pos(player)))
         {
-            // TODO not only moves that the king can make, should include moves that all of this player's pieces can make
-            // King is in check, and has no moves
-            if let Some(possible_moves) = get_possible_moves(self, king_pos) {
-                if self.is_pos_attacked(king_pos) && possible_moves.is_empty() {
+            // No moves for this player
+            if self
+                .get_all_player_pieces(player)
+                .iter()
+                .filter_map(|&piece_pos| get_possible_moves(self, piece_pos))
+                .flat_map(IntoIterator::into_iter)
+                .next()
+                .is_none()
+            {
+                // King is in check, it is checkmate
+                if self.is_pos_attacked(king_pos) {
                     let opposite_player = player.next_player();
-                    return Some(opposite_player);
+                    return Some(Some(opposite_player));
                 }
+
+                // Stalemate
+                return Some(None);
             }
         }
 
