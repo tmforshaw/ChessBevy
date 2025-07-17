@@ -114,12 +114,14 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Normal Starting Board
+        // const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // Normal Starting Board
 
         // const DEFAULT_FEN: &str = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"; // Castling Test Board
         // const DEFAULT_FEN: &str = "rnbqkbnr/p1p1pppp/1p6/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"; // En Pasasnt Test Board
-        // const DEFAULT_FEN: &str =
-        //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
+
+        const DEFAULT_FEN: &str =
+            "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
+
         // const DEFAULT_FEN: &str = "8/1ppkp1P1/3pp3/8/8/5PP1/p2PPKP1/8 w - - 1 1"; // Promotion Test Board
 
         match Self::from_fen(DEFAULT_FEN) {
@@ -330,6 +332,9 @@ impl Board {
         background_ev: &mut EventWriter<BackgroundColourEvent>,
         history_move: HistoryMove,
     ) {
+        // Check if this move caused the game to end
+        let game_didnt_end = self.has_game_ended().is_none();
+
         let (piece_move, captured_piece, en_passant_tile, castling_rights) = history_move.into();
 
         // Set the castling rights
@@ -404,8 +409,12 @@ impl Board {
             _ => {}
         }
 
+        // Only increment the player if the game didn't end on this move
+        if game_didnt_end {
+            self.next_player();
+        }
+
         // Change background colour to show current player
-        self.next_player();
         background_ev.send(BackgroundColourEvent::new_from_player(self.get_player()));
     }
 
