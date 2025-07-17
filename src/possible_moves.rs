@@ -7,6 +7,8 @@ use crate::{
     piece_move::PieceMove,
 };
 
+const POSSIBLE_MOVE_COLOUR: Color = Color::rgba(0., 1., 0., 0.75);
+
 #[derive(Event, Debug)]
 pub struct PossibleMoveDisplayEvent {
     pub from: TilePos,
@@ -25,23 +27,26 @@ pub fn possible_move_event_handler(
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            for pos in get_possible_moves(&board, ev.from) {
-                let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+            if let Some(possible_moves) = get_possible_moves(&board, ev.from) {
+                for pos in possible_moves {
+                    let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
-                commands.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::rgba(0., 1., 0., 0.75),
+                    commands.spawn((
+                        SpriteBundle {
+                            sprite: Sprite {
+                                color: POSSIBLE_MOVE_COLOUR,
+                                ..default()
+                            },
+                            transform: Transform::from_xyz(x, y, 2.)
+                                .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                             ..default()
                         },
-                        transform: Transform::from_xyz(x, y, 2.)
-                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
-                        ..default()
-                    },
-                    PossibleMoveMarker,
-                ));
+                        PossibleMoveMarker,
+                    ));
+                }
             }
         } else {
+            // Stop displaying all entities
             for entity in possible_move_entities.iter() {
                 commands.entity(entity).despawn();
             }
@@ -50,7 +55,7 @@ pub fn possible_move_event_handler(
 }
 
 #[must_use]
-pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
+pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Option<Vec<TilePos>> {
     let piece = board.get_piece(from);
 
     (match piece {
@@ -61,8 +66,8 @@ pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
         Piece::BBishop | Piece::WBishop => Board::get_diagonal_moves,
         Piece::BPawn | Piece::WPawn => Board::get_pawn_moves,
         Piece::None => {
-            const fn no_moves(_: &Board, _: TilePos) -> Vec<TilePos> {
-                Vec::new()
+            const fn no_moves(_: &Board, _: TilePos) -> Option<Vec<TilePos>> {
+                None
             }
 
             no_moves
@@ -71,11 +76,11 @@ pub fn get_pseudolegal_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
 }
 
 #[must_use]
-pub fn get_possible_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
-    let player = board.get_piece(from).to_player().unwrap();
+pub fn get_possible_moves(board: &Board, from: TilePos) -> Option<Vec<TilePos>> {
+    let player = board.get_piece(from).to_player()?;
 
     // Don't allow moves which cause the king to be attacked
-    get_pseudolegal_moves(board, from)
+    Some(get_pseudolegal_moves(board, from)?
         .into_iter()
         .filter(|&move_to_pos| {
             // Ensure that move won't cause the king to be attacked
@@ -84,5 +89,5 @@ pub fn get_possible_moves(board: &Board, from: TilePos) -> Vec<TilePos> {
            && board.get_piece(move_to_pos).to_player()
                 != Some(player)
         })
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>())
 }

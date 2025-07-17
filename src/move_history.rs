@@ -127,6 +127,8 @@ impl PieceMoveHistory {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the index was moved out of bounds
     pub const fn increment_index(&mut self) -> Result<(), MoveHistoryError> {
         let mut index_changed = true;
 
@@ -148,6 +150,8 @@ impl PieceMoveHistory {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the index was moved out of bounds
     pub const fn decrement_index(&mut self) -> Result<(), MoveHistoryError> {
         let mut index_changed = true;
 
@@ -199,7 +203,7 @@ impl PieceMoveHistory {
         if !self.moves.is_empty() {
             // Increment index and if it was changed, return the move at the new index
             if self.increment_index().is_ok() {
-                return Some(self.moves[self.current_idx.unwrap()]);
+                return Some(self.moves[self.current_idx.unwrap_or(0)]);
             }
         }
 
@@ -269,7 +273,17 @@ pub fn move_history_event_handler(
             return;
         };
 
-        if !ev.backwards {
+        if ev.backwards {
+            board.undo_move(
+                &mut commands,
+                &asset_server,
+                &mut texture_atlas_layouts,
+                &mut transform_query,
+                &mut texture_atlas_query,
+                &mut background_ev,
+                history_move,
+            );
+        } else {
             let (piece_move_original, _, _, _) = history_move.into();
 
             let _ = board.apply_move(
@@ -279,16 +293,6 @@ pub fn move_history_event_handler(
                 &mut background_ev,
                 &mut checkmate_ev,
                 piece_move_original,
-            );
-        } else {
-            board.undo_move(
-                &mut commands,
-                &asset_server,
-                &mut texture_atlas_layouts,
-                &mut transform_query,
-                &mut texture_atlas_query,
-                &mut background_ev,
-                history_move,
             );
         }
     }

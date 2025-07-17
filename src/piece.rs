@@ -11,7 +11,6 @@ use crate::{
 pub const PIECE_AMT: usize = 6;
 pub const COLOUR_AMT: usize = 2;
 
-#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Piece {
     BQueen = 0,
@@ -110,14 +109,15 @@ impl Piece {
         }
     }
 
+    /// # Panics
+    /// Panics if ``Piece::None`` is used as an index
     #[must_use]
     pub fn to_bitboard_index(&self) -> usize {
-        // Will panic if Piece::None is used as an index
         PIECES
             .iter()
             .enumerate()
             .find_map(|(i, piece)| if self == piece { Some(i) } else { None })
-            .unwrap()
+            .expect("Piece::None cannot be converted to a bitboard index")
     }
 
     #[must_use]
@@ -166,14 +166,6 @@ impl From<Piece> for char {
     }
 }
 
-#[allow(clippy::fallible_impl_from)]
-impl From<char> for Piece {
-    fn from(val: char) -> Self {
-        // TODO Stop the panic when incorrect letter is parsed
-        Self::from_algebraic(val).unwrap()
-    }
-}
-
 #[derive(Bundle)]
 pub struct PieceBundle {
     pub sprite: SpriteSheetBundle,
@@ -183,6 +175,8 @@ pub struct PieceBundle {
 }
 
 impl PieceBundle {
+    /// # Panics
+    /// Panics if ``Piece::None`` used as a bitboard index for the texture atlas
     pub fn new(
         (file, rank): (usize, usize),
         key: Piece,
@@ -190,6 +184,7 @@ impl PieceBundle {
         texture_atlas_layout: Handle<TextureAtlasLayout>,
     ) -> Self {
         assert!(key != Piece::None, "{key:?} used as bitboard index");
+
         let (x, y) = board_to_pixel_coords(file, rank);
 
         // Create a bundle with this piece's spritesheet and some listeners for picking up the pieces
@@ -211,13 +206,17 @@ impl PieceBundle {
     }
 }
 
+/// # Panics
+/// Panics if the dragged entity's transform cannot be found
 fn on_piece_drag_start(
     mut ev_drag: EventReader<Pointer<Drag>>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
     mut transform_query: Query<&mut Transform>,
 ) {
     for ev in ev_drag.read() {
-        let transform = transform_query.get_mut(ev.target).unwrap();
+        let transform = transform_query
+            .get_mut(ev.target)
+            .expect("Dragged entity's transform could not be found");
 
         let mouse_pos = transform.translation.xy() * Vec2::new(1., -1.);
         let (file, rank) = pixel_to_board_coords(mouse_pos.x, -mouse_pos.y);
@@ -229,19 +228,26 @@ fn on_piece_drag_start(
     }
 }
 
-// Move the piece when it is dragged by a mouse
+/// Move the piece when it is dragged by a mouse
+/// # Panics
+/// Panics if the dragged entity's transform cannot be found
 fn on_piece_drag(
     mut drag_er: EventReader<Pointer<Drag>>,
     mut transform_query: Query<&mut Transform>,
 ) {
     for drag_data in drag_er.read() {
-        let mut transform = transform_query.get_mut(drag_data.target).unwrap();
+        let mut transform = transform_query
+            .get_mut(drag_data.target)
+            .expect("Dragged entity's transform could not be found");
+
         transform.translation += Vec3::new(drag_data.delta.x, -drag_data.delta.y, 0.);
         transform.translation.z = 10.;
     }
 }
 
-// Finalise the movement of a piece, either snapping it to the grid, or by moving it back
+/// Finalise the movement of a piece, either snapping it to the grid, or by moving it back
+/// # Panics
+/// Panics if the dragged entity's transform cannot be found
 fn on_piece_drag_end(
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
@@ -249,7 +255,9 @@ fn on_piece_drag_end(
     mut ev_piece_move: EventWriter<PieceMoveEvent>,
 ) {
     for drag_data in drag_er.read() {
-        let transform = transform_query.get_mut(drag_data.target).unwrap();
+        let transform = transform_query
+            .get_mut(drag_data.target)
+            .expect("Dragged entity's transform could not be found");
 
         // Find where the piece was moved from in board coordinates
         let original_pos = transform.translation.xy()

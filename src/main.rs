@@ -1,13 +1,9 @@
-// #![warn(clippy::all)]
-// #![warn(clippy::pedantic)]
-// #![warn(clippy::nursery)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![warn(clippy::unwrap_used)]
 #![allow(clippy::cast_precision_loss)]
 #![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_sign_loss)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::option_if_let_else)]
 
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
@@ -33,6 +29,9 @@ pub mod piece;
 pub mod piece_move;
 pub mod possible_moves;
 
+// TODO There's a bug where I cant capture-promote to top-left tile
+// TODO Add stalemate
+
 fn main() {
     App::new()
         .add_plugins((
@@ -50,10 +49,8 @@ fn main() {
                 .build(),
             DefaultPickingPlugins,
         ))
-        // .insert_resource(bevy_mod_picking::debug::DebugPickingMode::Normal)
         .init_resource::<Board>()
         .init_resource::<KeyboardState>()
-        .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))
         .add_systems(Startup, (setup, display_board))
         .add_systems(
             Update,
@@ -76,6 +73,13 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+#[allow(clippy::needless_pass_by_value)]
+fn setup(
+    mut commands: Commands,
+    board: Res<Board>,
+    mut background_ev: EventWriter<BackgroundColourEvent>,
+) {
     commands.spawn(Camera2dBundle::default());
+
+    background_ev.send(BackgroundColourEvent::new_from_player(board.get_player()));
 }

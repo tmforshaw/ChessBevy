@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use crate::{
     bitboard::BitBoards,
     checkmate::CheckmateEvent,
-    display::{get_texture_atlas, BackgroundColourEvent, BOARD_SIZE},
+    display::{get_texture_atlas, translate_piece_entity, BackgroundColourEvent, BOARD_SIZE},
     move_history::{HistoryMove, PieceMoveHistory},
     piece::{Piece, PieceBundle, COLOUR_AMT, PIECES},
     piece_move::{
         apply_promotion, handle_castling, handle_en_passant, perform_castling, perform_promotion,
-        translate_piece_entity, PieceMove, PieceMoveType,
+        PieceMove, PieceMoveType,
     },
     possible_moves::{get_possible_moves, get_pseudolegal_moves},
 };
@@ -24,6 +24,8 @@ pub enum Player {
 
 impl Player {
     #[must_use]
+    /// # Panics
+    // Panics if the PLAYERS array does not contain the Player
     pub fn to_index(&self) -> usize {
         PLAYERS
             .iter()
@@ -37,20 +39,20 @@ impl Player {
                     }
                 },
             )
-            .expect("Could not find index of player: {self:?}")
+            .unwrap_or_else(|| panic!("Could not find index of player: {self:?}"))
     }
 
+    #[must_use]
     pub const fn next_player(&self) -> Self {
         match self {
-            Player::White => Player::Black,
-            Player::Black => Player::White,
+            Self::White => Self::Black,
+            Self::Black => Self::White,
         }
     }
 }
 
 pub const PLAYERS: &[Player] = &[Player::White, Player::Black];
 
-#[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TilePos {
     pub file: usize,
@@ -63,6 +65,8 @@ impl TilePos {
         Self { file, rank }
     }
 
+    /// # Errors
+    /// Throws a ``TryFromIntError`` if the file cannot be converted to an integer
     pub fn to_algebraic(&self) -> Result<String, std::num::TryFromIntError> {
         Ok(format!(
             "{}{}",
@@ -118,7 +122,10 @@ impl Default for Board {
         //     "rnbqkbnr/1ppp1ppp/8/p3p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 4"; // Scholar's Mate Board
         // const DEFAULT_FEN: &str = "8/1ppkp1P1/3pp3/8/8/5PP1/p2PPKP1/8 w - - 1 1"; // Promotion Test Board
 
-        Self::from_fen(DEFAULT_FEN).unwrap()
+        match Self::from_fen(DEFAULT_FEN) {
+            Ok(board) => board,
+            Err(e) => panic!("Board could not be created from FEN:\n\t{e:?}"),
+        }
     }
 }
 
@@ -139,12 +146,12 @@ impl Board {
 
         let mut board = Self {
             positions: BitBoards::default(),
+            entities: [[None; BOARD_SIZE]; BOARD_SIZE],
             player: Player::default(),
             castling_rights: [(false, false); COLOUR_AMT],
             en_passant_on_last_move: None,
             half_move_counter: 0,
             full_move_counter: 1,
-            entities: [[None; BOARD_SIZE]; BOARD_SIZE],
             move_history: PieceMoveHistory::default(),
         };
 
@@ -200,8 +207,6 @@ impl Board {
                             let algebraic_en_passant =
                                 fen.chars().skip(chr_index).take(2).collect::<Vec<_>>();
 
-                            // chr_index += 1;
-
                             match (algebraic_en_passant[0], algebraic_en_passant[1]) {
                                 ('a'..='h', '0'..='8') => {
                                     board.en_passant_on_last_move = Some(TilePos::new(
@@ -223,6 +228,11 @@ impl Board {
         Ok(board)
     }
 
+    /// # Panics
+    /// Panics if the piece moved to a tile which isn't ``Piece::None``, but there was no entity found there
+    /// Panics if the piece which was moved, but its entity could not be found
+    /// Panics if en passant handling fails
+    /// Panics if castling handling fails
     #[allow(clippy::type_complexity)]
     pub fn apply_move(
         &mut self,
@@ -234,17 +244,20 @@ impl Board {
         mut piece_move: PieceMove,
     ) -> (PieceMove, Option<TilePos>, [(bool, bool); 2], Option<Piece>) {
         let mut piece_captured = false;
-        let mut piece_moved_to = Piece::None;
 
         // Capture any pieces that should be captured
-        if self.get_piece(piece_move.to) != Piece::None {
+        let mut piece_moved_to = if self.get_piece(piece_move.to) == Piece::None {
+            Piece::None
+        } else {
             piece_captured = true;
-            let captured_entity = self.get_entity(piece_move.to).unwrap();
+            let captured_entity = self
+                .get_entity(piece_move.to)
+                .unwrap_or_else(|| panic!("Entity not found at {}", piece_move.to));
 
             commands.entity(captured_entity).despawn();
 
-            piece_moved_to = self.get_piece(piece_move.to);
-        }
+            self.get_piece(piece_move.to)
+        };
 
         let moved_piece = self.get_piece(piece_move.from);
 
@@ -260,12 +273,14 @@ impl Board {
             moved_piece,
             piece_captured,
             piece_moved_to,
-        );
+        )
+        .expect("Could not handle en passant in apply_move");
 
         // Handle Castling
         let castling_rights_before_move;
         (castling_rights_before_move, piece_move) =
-            handle_castling(self, transform_query, piece_move, moved_piece);
+            handle_castling(self, transform_query, piece_move, moved_piece)
+                .expect("Castling could not be handled in apply_move");
 
         let captured_piece = if piece_captured {
             Some(piece_moved_to)
@@ -275,7 +290,12 @@ impl Board {
 
         // Move the piece internally and update its entity translation
         self.move_piece(piece_move);
-        let piece_entity = self.get_entity(piece_move.to).unwrap();
+        let piece_entity = self.get_entity(piece_move.to).unwrap_or_else(|| {
+            panic!(
+                "Moved piece at {} to {}, but no entity was found",
+                piece_move.from, piece_move.to
+            )
+        });
         translate_piece_entity(transform_query, piece_entity, piece_move.to);
 
         // Check if this move has caused a checkmate
@@ -295,6 +315,9 @@ impl Board {
         )
     }
 
+    /// # Panics
+    /// Panics if the move is a promotion and the player cannot be found from the moved piece
+    /// Panics if the entity could not be found for the undone piece
     #[allow(clippy::too_many_arguments)]
     pub fn undo_move(
         &mut self,
@@ -326,7 +349,7 @@ impl Board {
                 let player_index = self
                     .get_piece(piece_move.to)
                     .to_player()
-                    .expect("Player could not be found via piece move in History")
+                    .expect("Player could not be found via piece move for promotion")
                     .to_index();
 
                 // Get this player's pawn type
@@ -368,8 +391,8 @@ impl Board {
                     let captured_entity = commands.spawn(PieceBundle::new(
                         captured_piece_tile.into(),
                         captured_piece,
-                        texture.clone(),
-                        texture_atlas_layout.clone(),
+                        texture,
+                        texture_atlas_layout,
                     ));
 
                     // Update the board to make it aware of the spawned piece
@@ -443,15 +466,15 @@ impl Board {
         self.player = self.get_next_player();
     }
 
-    fn get_moves_in_dir(&self, from: TilePos, dirs: Vec<(isize, isize)>) -> Vec<TilePos> {
+    fn get_moves_in_dir(&self, from: TilePos, dirs: Vec<(isize, isize)>) -> Option<Vec<TilePos>> {
         let mut positions = Vec::new();
 
-        let board_size_isize = isize::try_from(BOARD_SIZE).unwrap();
+        let board_size_isize = isize::try_from(BOARD_SIZE).ok()?;
 
         for dir in dirs {
             for k in 1..(board_size_isize) {
-                let new_file = isize::try_from(from.file).unwrap() + dir.0 * k;
-                let new_rank = isize::try_from(from.rank).unwrap() + dir.1 * k;
+                let new_file = isize::try_from(from.file).ok()? + dir.0 * k;
+                let new_rank = isize::try_from(from.rank).ok()? + dir.1 * k;
 
                 // New pos is within the board
                 if new_file >= 0
@@ -460,8 +483,8 @@ impl Board {
                     && new_rank < board_size_isize
                 {
                     let new_pos = TilePos::new(
-                        usize::try_from(new_file).unwrap(),
-                        usize::try_from(new_rank).unwrap(),
+                        usize::try_from(new_file).ok()?,
+                        usize::try_from(new_rank).ok()?,
                     );
 
                     let piece = self.get_piece(from);
@@ -479,34 +502,64 @@ impl Board {
             }
         }
 
-        positions
+        Some(positions)
     }
 
     #[must_use]
-    pub fn get_orthogonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_orthogonal_moves(&self, from: TilePos) -> Option<Vec<TilePos>> {
         self.get_moves_in_dir(from, vec![(1, 0), (0, 1), (-1, 0), (0, -1)])
     }
 
     #[must_use]
-    pub fn get_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_diagonal_moves(&self, from: TilePos) -> Option<Vec<TilePos>> {
         self.get_moves_in_dir(from, vec![(1, 1), (1, -1), (-1, 1), (-1, -1)])
     }
 
     #[must_use]
-    pub fn get_ortho_diagonal_moves(&self, from: TilePos) -> Vec<TilePos> {
-        let mut positions = self.get_orthogonal_moves(from);
-        positions.append(&mut self.get_diagonal_moves(from));
+    pub fn get_ortho_diagonal_moves(&self, from: TilePos) -> Option<Vec<TilePos>> {
+        let mut positions = self.get_orthogonal_moves(from)?;
+        positions.append(&mut self.get_diagonal_moves(from)?);
 
-        positions
+        Some(positions)
+    }
+
+    fn get_castling_pos(&self, from: TilePos, file: usize) -> Option<TilePos> {
+        // Get Rook Position
+        let rook = TilePos::new(file, from.rank);
+
+        // Check that it is empty between the rook and the king
+        if self.is_empty_between(from, rook) {
+            // Check that there are no attacked tiles between the rook and the king
+            let tiles_between = self.get_tiles_between(from, rook)?;
+
+            let mut attacked_between = false;
+            for tile in tiles_between {
+                if self.is_pos_attacked(tile) {
+                    attacked_between = true;
+                    break;
+                }
+            }
+
+            if !attacked_between {
+                let new_file = if from.file > file {
+                    from.file - 2
+                } else {
+                    from.file + 2
+                };
+                return Some(TilePos::new(new_file, from.rank));
+            }
+        }
+
+        None
     }
 
     #[must_use]
-    pub fn get_knight_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_knight_moves(&self, from: TilePos) -> Option<Vec<TilePos>> {
         let mut positions = Vec::new();
 
-        let file_isize = isize::try_from(from.file).unwrap();
-        let rank_isize = isize::try_from(from.rank).unwrap();
-        let board_size_isize = isize::try_from(BOARD_SIZE).unwrap();
+        let file_isize = isize::try_from(from.file).ok()?;
+        let rank_isize = isize::try_from(from.rank).ok()?;
+        let board_size_isize = isize::try_from(BOARD_SIZE).ok()?;
 
         for i in [-2, -1, 1, 2_isize] {
             for j in [-2, -1, 1, 2_isize] {
@@ -517,8 +570,8 @@ impl Board {
                     && rank_isize + j < board_size_isize
                 {
                     let new_pos = TilePos::new(
-                        usize::try_from(file_isize + i).unwrap(),
-                        usize::try_from(rank_isize + j).unwrap(),
+                        usize::try_from(file_isize + i).ok()?,
+                        usize::try_from(rank_isize + j).ok()?,
                     );
 
                     let captured_piece = self.get_piece(new_pos);
@@ -531,16 +584,16 @@ impl Board {
             }
         }
 
-        positions
+        Some(positions)
     }
 
     #[must_use]
-    pub fn get_king_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_king_moves(&self, from: TilePos) -> Option<Vec<TilePos>> {
         let mut positions = Vec::new();
 
-        let file_isize = isize::try_from(from.file).unwrap();
-        let rank_isize = isize::try_from(from.rank).unwrap();
-        let board_size_isize = isize::try_from(BOARD_SIZE).unwrap();
+        let file_isize = isize::try_from(from.file).ok()?;
+        let rank_isize = isize::try_from(from.rank).ok()?;
+        let board_size_isize = isize::try_from(BOARD_SIZE).ok()?;
 
         let player = self.get_piece(from).to_player();
 
@@ -557,8 +610,8 @@ impl Board {
                         && horizontal < board_size_isize
                     {
                         let new_pos = TilePos::new(
-                            usize::try_from(file_isize + i).unwrap(),
-                            usize::try_from(rank_isize + j).unwrap(),
+                            usize::try_from(file_isize + i).ok()?,
+                            usize::try_from(rank_isize + j).ok()?,
                         );
 
                         if self.get_piece(new_pos).to_player() != player {
@@ -573,62 +626,32 @@ impl Board {
         if let Some(player) = player {
             let player_index = player.to_index();
 
-            fn get_castling_pos(board: &Board, from: TilePos, file: usize) -> Option<TilePos> {
-                // Get Rook Position
-                let rook = TilePos::new(file, from.rank);
-
-                // Check that it is empty between the rook and the king
-                if board.is_empty_between(from, rook) {
-                    // Check that there are no attacked tiles between the rook and the king
-                    let tiles_between = board.get_tiles_between(from, rook);
-
-                    let mut attacked_between = false;
-                    for tile in tiles_between {
-                        if board.is_pos_attacked(tile) {
-                            attacked_between = true;
-                            break;
-                        }
-                    }
-
-                    if !attacked_between {
-                        let new_file = if from.file > file {
-                            from.file - 2
-                        } else {
-                            from.file + 2
-                        };
-                        return Some(TilePos::new(new_file, from.rank));
-                    }
-                }
-
-                None
-            }
-
             // Kingside Castling
             if self.castling_rights[player_index].0 {
-                if let Some(pos) = get_castling_pos(self, from, BOARD_SIZE - 1) {
+                if let Some(pos) = self.get_castling_pos(from, BOARD_SIZE - 1) {
                     positions.push(pos);
                 }
             }
 
             // Queenside Castling
             if self.castling_rights[player_index].1 {
-                if let Some(pos) = get_castling_pos(self, from, 0) {
+                if let Some(pos) = self.get_castling_pos(from, 0) {
                     positions.push(pos);
                 }
             }
         }
 
-        positions
+        Some(positions)
     }
 
     #[must_use]
-    pub fn get_pawn_moves(&self, from: TilePos) -> Vec<TilePos> {
+    pub fn get_pawn_moves(&self, from: TilePos) -> Option<Vec<TilePos>> {
         let piece = self.get_piece(from);
         let vertical_dir = Self::get_vertical_dir(piece);
 
-        let file_isize = isize::try_from(from.file).unwrap();
-        let rank_isize = isize::try_from(from.rank).unwrap();
-        let board_size_isize = isize::try_from(BOARD_SIZE).unwrap();
+        let file_isize = isize::try_from(from.file).ok()?;
+        let rank_isize = isize::try_from(from.rank).ok()?;
+        let board_size_isize = isize::try_from(BOARD_SIZE).ok()?;
 
         let mut positions = Vec::new();
 
@@ -636,10 +659,7 @@ impl Board {
         let new_vertical_pos = rank_isize + vertical_dir;
         if new_vertical_pos >= 0 && new_vertical_pos < board_size_isize {
             // Single Move Vertically
-            let new_pos = TilePos::new(
-                from.file,
-                usize::try_from(rank_isize + vertical_dir).unwrap(),
-            );
+            let new_pos = TilePos::new(from.file, usize::try_from(rank_isize + vertical_dir).ok()?);
             if self.get_piece(new_pos) == Piece::None {
                 positions.push(new_pos);
             }
@@ -651,8 +671,8 @@ impl Board {
                 if new_horizontal_pos > 0 && new_horizontal_pos < board_size_isize {
                     if let Some(player) = piece.to_player() {
                         let new_pos = TilePos::new(
-                            usize::try_from(new_horizontal_pos).unwrap(),
-                            usize::try_from(new_vertical_pos).unwrap(),
+                            usize::try_from(new_horizontal_pos).ok()?,
+                            usize::try_from(new_vertical_pos).ok()?,
                         );
 
                         if let Some(captured_player) = self.get_piece(new_pos).to_player() {
@@ -667,8 +687,8 @@ impl Board {
 
         // En passant
         if let Some(passant_tile) = self.en_passant_on_last_move {
-            let file_diff = isize::try_from(passant_tile.file).unwrap() - file_isize;
-            let rank_diff = isize::try_from(passant_tile.rank).unwrap() - rank_isize;
+            let file_diff = isize::try_from(passant_tile.file).ok()? - file_isize;
+            let rank_diff = isize::try_from(passant_tile.rank).ok()? - rank_isize;
 
             // Is able to take the en passant square
             if file_diff.abs() == 1 && rank_diff == vertical_dir {
@@ -680,14 +700,15 @@ impl Board {
         if Self::double_pawn_move_check(piece, from) {
             let new_pos = TilePos::new(
                 from.file,
-                usize::try_from(rank_isize + 2 * vertical_dir).unwrap(),
+                usize::try_from(rank_isize + 2 * vertical_dir).ok()?,
             );
-            if self.get_piece(new_pos) == Piece::None {
+
+            if self.is_empty_between(from, new_pos) {
                 positions.push(new_pos);
             }
         }
 
-        positions
+        Some(positions)
     }
 
     // Get the tiles which are attacked by the opposing player
@@ -710,7 +731,8 @@ impl Board {
                 board
                     .get_positions()
                     .iter()
-                    .flat_map(|&pos| get_pseudolegal_moves(self, pos))
+                    .filter_map(|&pos| get_pseudolegal_moves(self, pos))
+                    .flat_map(IntoIterator::into_iter)
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>()
@@ -718,13 +740,14 @@ impl Board {
 
     #[must_use]
     pub fn is_pos_attacked(&self, pos: TilePos) -> bool {
-        if let Some(player) = self.get_piece(pos).to_player() {
-            self.get_attacked_tiles(player).contains(&pos)
-        } else {
-            // Don't bother to check for Piece::None
-            eprintln!("Tried to check if Piece::None was attacked");
-            false
-        }
+        self.get_piece(pos).to_player().map_or_else(
+            || {
+                // Don't bother to check for Piece::None
+                eprintln!("Tried to check if Piece::None was attacked");
+                false
+            },
+            |player| self.get_attacked_tiles(player).contains(&pos),
+        )
     }
 
     #[must_use]
@@ -755,18 +778,16 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_tiles_between(&self, pos1: TilePos, pos2: TilePos) -> Vec<TilePos> {
+    pub fn get_tiles_between(&self, pos1: TilePos, pos2: TilePos) -> Option<Vec<TilePos>> {
         if pos1.file == pos2.file || pos1.rank == pos2.rank {
-            return Vec::new();
+            return Some(Vec::new());
         }
 
-        let file_diff_isize =
-            isize::try_from(pos1.file).unwrap() - isize::try_from(pos2.file).unwrap();
-        let rank_diff_isize =
-            isize::try_from(pos1.rank).unwrap() - isize::try_from(pos2.rank).unwrap();
+        let file_diff_isize = isize::try_from(pos1.file).ok()? - isize::try_from(pos2.file).ok()?;
+        let rank_diff_isize = isize::try_from(pos1.rank).ok()? - isize::try_from(pos2.rank).ok()?;
 
         if file_diff_isize.unsigned_abs() > 1 || rank_diff_isize.unsigned_abs() > 1 {
-            return Vec::new();
+            return Some(Vec::new());
         }
 
         let lower_pos = if file_diff_isize < 0 || rank_diff_isize < 0 {
@@ -778,19 +799,23 @@ impl Board {
         let file_diff = usize::from(file_diff_isize != 0);
         let rank_diff = usize::from(rank_diff_isize != 0);
 
-        (1..((file_diff).max(rank_diff)))
-            .map(|k| {
-                TilePos::new(
-                    lower_pos.file + k * file_diff,
-                    lower_pos.rank + k * rank_diff,
-                )
-            })
-            .collect::<Vec<_>>()
+        Some(
+            (1..((file_diff).max(rank_diff)))
+                .map(|k| {
+                    TilePos::new(
+                        lower_pos.file + k * file_diff,
+                        lower_pos.rank + k * rank_diff,
+                    )
+                })
+                .collect::<Vec<_>>(),
+        )
     }
 
     #[must_use]
     pub fn is_empty_between(&self, pos1: TilePos, pos2: TilePos) -> bool {
-        let tiles_between = self.get_tiles_between(pos1, pos2);
+        let Some(tiles_between) = self.get_tiles_between(pos1, pos2) else {
+            return false;
+        };
 
         for tile in tiles_between {
             if self.get_piece(tile) == Piece::None {
@@ -845,10 +870,13 @@ impl Board {
             .iter()
             .map(|&player| (player, self.get_king_pos(player)))
         {
+            // TODO not only moves that the king can make, should include moves that all of this player's pieces can make
             // King is in check, and has no moves
-            if self.is_pos_attacked(king_pos) && get_possible_moves(self, king_pos).is_empty() {
-                let opposite_player = player.next_player();
-                return Some(opposite_player);
+            if let Some(possible_moves) = get_possible_moves(self, king_pos) {
+                if self.is_pos_attacked(king_pos) && possible_moves.is_empty() {
+                    let opposite_player = player.next_player();
+                    return Some(opposite_player);
+                }
             }
         }
 

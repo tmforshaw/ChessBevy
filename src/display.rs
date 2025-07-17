@@ -23,9 +23,11 @@ pub fn board_to_pixel_coords(file: usize, rank: usize) -> (f32, f32) {
 #[must_use]
 pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
     (
-        (((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as usize)
+        (((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
+            .unsigned_abs()
             .clamp(0, BOARD_SIZE - 1),
-        (((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as usize)
+        (((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
+            .unsigned_abs()
             .clamp(0, BOARD_SIZE - 1),
     )
 }
@@ -98,6 +100,20 @@ pub fn get_texture_atlas(
             None,
         )),
     )
+}
+
+/// # Panics
+/// Panics if the transform query cannot find the entity at the specified position
+pub fn translate_piece_entity(
+    transform_query: &mut Query<&mut Transform>,
+    piece_entity: Entity,
+    pos: TilePos,
+) {
+    let mut transform = transform_query
+        .get_mut(piece_entity)
+        .unwrap_or_else(|e| panic!("Could get piece entity at pos {pos}\n\t{e:?}"));
+    let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+    transform.translation = Vec3::new(x, y, 1.);
 }
 
 #[derive(Event)]

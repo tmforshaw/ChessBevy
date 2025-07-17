@@ -16,7 +16,6 @@ pub struct BitBoard {
     bits: u64,
 }
 
-#[allow(dead_code)]
 impl BitBoard {
     #[must_use]
     pub const fn get_bit(&self, index: usize) -> bool {
@@ -159,7 +158,7 @@ impl ops::Index<Piece> for BitBoards {
 
     fn index(&self, piece: Piece) -> &Self::Output {
         match piece {
-            Piece::None => todo!(),
+            Piece::None => panic!("Tried to use Piece::None as an index"),
             _ => &self.boards[piece.to_bitboard_index()],
         }
     }
@@ -168,7 +167,7 @@ impl ops::Index<Piece> for BitBoards {
 impl ops::IndexMut<Piece> for BitBoards {
     fn index_mut(&mut self, piece: Piece) -> &mut Self::Output {
         match piece {
-            Piece::None => todo!(),
+            Piece::None => panic!("Tried to use Piece::None as an index"),
             _ => &mut self.boards[piece.to_bitboard_index()],
         }
     }
@@ -234,11 +233,10 @@ pub fn bitboard_event_handler(
                     return;
                 };
                 let xy = [
-                    // board_to_pixel_coords(3, 5),
-                    // board_to_pixel_coords(1, 0),
+                    board_to_pixel_coords(3, 5),
+                    board_to_pixel_coords(1, 0),
                     board_to_pixel_coords(pos.file, pos.rank),
                 ];
-                // let (x, y) = board_to_pixel_coords(3, 5);
 
                 for (x, y) in xy {
                     commands.spawn((
