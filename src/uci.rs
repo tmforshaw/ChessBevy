@@ -1,3 +1,5 @@
+use bevy::prelude::*;
+
 use std::{
     io::{BufRead, BufReader, Write},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
@@ -6,6 +8,8 @@ use std::{
 
 use chess_core::piece_move::PieceMove;
 use thiserror::Error;
+
+use crate::{board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent};
 
 static UCI_TX: OnceLock<Mutex<Option<mpsc::Sender<UciMessage>>>> = OnceLock::new();
 
@@ -21,7 +25,10 @@ pub enum UciError {
     MutexLockError,
 
     #[error("Could not send message via mpsc using UCI_TX:\n\t{0}")]
-    MpscSendError(#[from] mpsc::SendError<UciMessage>),
+    UciTxSendError(#[from] mpsc::SendError<UciMessage>),
+
+    #[error("Could not send message via mpsc using Board_TX:\n\t{0}")]
+    BoardTxSendError(#[from] mpsc::SendError<UciToBoardMessage>),
 
     #[error("Could not find UCI_TX")]
     TxNotFound,
@@ -33,15 +40,90 @@ pub enum UciError {
     EngineProcessWaitError,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UciMessage {
     NewMove { move_history: String },
     CloseChannel,
 }
 
+#[derive(Debug, Resource, Clone)]
+pub enum UciToBoardMessage {
+    BestMove(PieceMove),
+}
+
+#[derive(Event, Resource, Debug, Clone)]
+pub struct UciToBoardEvent {
+    message: UciToBoardMessage,
+}
+impl UciToBoardEvent {
+    #[allow(dead_code)]
+    #[must_use]
+    pub const fn new(message: UciToBoardMessage) -> Self {
+        Self { message }
+    }
+}
+
+#[derive(Resource)]
+pub struct UciToBoardReceiver(pub crossbeam_channel::Receiver<UciToBoardEvent>);
+
+// TODO
+/// # Panics
+pub fn uci_to_board_event_handler(
+    mut ev_uci_to_board: EventReader<UciToBoardEvent>,
+    mut commands: Commands,
+    mut board: ResMut<BoardBevy>,
+    mut background_ev: EventWriter<BackgroundColourEvent>,
+    mut transform_query: Query<&mut Transform>,
+    mut texture_atlas_query: Query<&mut TextureAtlas>,
+    mut game_end_ev: EventWriter<GameEndEvent>,
+) {
+    // Listen for messages from the Engine Listener thread, then apply moves
+    for ev in ev_uci_to_board.read() {
+        println!("Board message");
+
+        match ev.message {
+            UciToBoardMessage::BestMove(piece_move) => {
+                println!(
+                    "Applying Move: {piece_move}\t{}",
+                    piece_move
+                        .to_algebraic()
+                        .expect("Could not convert piece move to algebraic in UciToBoard")
+                );
+                let _ = board.apply_move(
+                    &mut commands,
+                    &mut transform_query,
+                    &mut texture_atlas_query,
+                    &mut background_ev,
+                    &mut game_end_ev,
+                    piece_move,
+                );
+            }
+        }
+    }
+}
+
+// #[must_use]
+// pub fn spawn_uci_to_board_worker() -> UciToBoardReceiverTransmitter {
+//     let (tx, rx) = crossbeam_channel::unbounded();
+
+//     // TODO
+//     UciToBoardReceiverTransmitter(rx)
+// }
+
+#[allow(clippy::needless_pass_by_value)]
+pub fn process_uci_to_board_threads(
+    tx_rx: Res<UciToBoardReceiver>,
+    mut uci_to_board_ev: EventWriter<UciToBoardEvent>,
+) {
+    for ev in tx_rx.0.try_iter() {
+        println!("Event Processing");
+        uci_to_board_ev.send(ev);
+    }
+}
+
 /// # Panics
 /// Panics if the engine process cannot start
-pub fn communicate_to_uci() {
+pub fn communicate_to_uci() -> UciToBoardReceiver {
     // Start the engine process // TODO This will break when the binary is moved
     let mut engine_process = Command::new("target/debug/chess_engine")
         .stdin(Stdio::piped())
@@ -59,20 +141,29 @@ pub fn communicate_to_uci() {
     // This returns when the engine has responded that it is ready for moves
     greet_uci(&shared_stdin, &mut reader).unwrap_or_else(|e| panic!("{e}"));
 
-    // Create a channel to communicate with this process when it is looping
-    let (tx, rx) = std::sync::mpsc::channel();
+    // Create a channel to communicate with this process when it is listening to the engine
+    let (uci_tx, uci_rx) = std::sync::mpsc::channel();
     UCI_TX
-        .set(Mutex::new(Some(tx)))
+        .set(Mutex::new(Some(uci_tx)))
         .expect("Could not set the UCI_TX OnceLock");
 
+    let (board_tx, board_rx) = crossbeam_channel::unbounded();
+
+    // Create a thread for parsing the UciMessages and sending them to the engine
     let shared_stdin_clone = shared_stdin.clone();
-    // Create a thread for parsing the messages
     std::thread::spawn(move || {
-        for message in rx {
+        for message in uci_rx {
+            board_tx
+                .send(UciToBoardEvent::new(UciToBoardMessage::BestMove(
+                    PieceMove::from_algebraic("e2e4").unwrap(),
+                )))
+                .unwrap();
+
             match_uci_message(
                 message,
                 &shared_stdin_clone,
                 &mut reader,
+                &board_tx,
                 &mut engine_process,
             )
             .unwrap_or_else(|e| panic!("{e}"));
@@ -81,12 +172,7 @@ pub fn communicate_to_uci() {
         println!("Mpsc Channel Closed");
     });
 
-    transmit_to_uci(UciMessage::NewMove {
-        move_history: "e2e4 e7e5".to_string(),
-    })
-    .unwrap_or_else(|e| panic!("{e}"));
-
-    // transmit_to_uci(UciMessage::CloseChannel).unwrap_or_else(|e| panic!("{e}"));
+    UciToBoardReceiver(board_rx)
 }
 
 /// # Errors
@@ -191,6 +277,7 @@ pub fn match_uci_message(
     message: UciMessage,
     shared_stdin: &Arc<Mutex<ChildStdin>>,
     stdout_reader: &mut BufReader<ChildStdout>,
+    board_tx: &crossbeam_channel::Sender<UciToBoardEvent>,
     engine_process: &mut Child,
 ) -> Result<(), UciError> {
     match message {
@@ -229,9 +316,13 @@ pub fn match_uci_message(
 
             let piece_move =
                 PieceMove::from_algebraic(move_part).map_err(UciError::PieceMoveParseError)?;
-            println!("{piece_move}\t{}", piece_move.to_algebraic().unwrap());
 
             // Send this move to the board
+            board_tx
+                .send(UciToBoardEvent::new(UciToBoardMessage::BestMove(
+                    piece_move,
+                )))
+                .unwrap();
         }
         UciMessage::CloseChannel => {
             // Close the channel

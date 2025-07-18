@@ -17,7 +17,10 @@ use crate::{
     move_history::{move_history_event_handler, MoveHistoryEvent},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
     possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
-    uci::communicate_to_uci,
+    uci::{
+        communicate_to_uci, process_uci_to_board_threads, uci_to_board_event_handler,
+        UciToBoardEvent,
+    },
 };
 
 pub mod bitboard;
@@ -48,9 +51,18 @@ fn main() {
                 .build(),
             DefaultPickingPlugins,
         ))
+        .add_event::<PieceMoveEvent>()
+        .add_event::<BitBoardDisplayEvent>()
+        .add_event::<PossibleMoveDisplayEvent>()
+        .add_event::<BackgroundColourEvent>()
+        .add_event::<MoveHistoryEvent>()
+        .add_event::<GameEndEvent>()
+        .add_event::<UciToBoardEvent>()
         .init_resource::<BoardBevy>()
         .init_resource::<KeyboardState>()
+        .insert_resource(communicate_to_uci())
         .add_systems(Startup, (setup, display_board))
+        .add_systems(PreUpdate, process_uci_to_board_threads)
         .add_systems(
             Update,
             (
@@ -61,14 +73,9 @@ fn main() {
                 background_colour_event_handler,
                 move_history_event_handler,
                 game_end_event_handler,
+                uci_to_board_event_handler,
             ),
         )
-        .add_event::<PieceMoveEvent>()
-        .add_event::<BitBoardDisplayEvent>()
-        .add_event::<PossibleMoveDisplayEvent>()
-        .add_event::<BackgroundColourEvent>()
-        .add_event::<MoveHistoryEvent>()
-        .add_event::<GameEndEvent>()
         .run();
 }
 
@@ -83,6 +90,9 @@ fn setup(
     background_ev.send(BackgroundColourEvent::new_from_player(
         board.board.get_player(),
     ));
-
-    communicate_to_uci();
 }
+
+// #[allow(clippy::needless_pass_by_value)]
+// fn begin_uci_communication(rx_tx: Res<UciToBoardReceiver>) {
+//     communicate_to_uci(&rx_tx);
+// }
