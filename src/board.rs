@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use chess_core::{
     board::{Board, TilePos, BOARD_SIZE, PLAYERS},
+    move_history::HistoryMove,
     piece::Piece,
     piece_move::{
         apply_promotion, handle_castling, handle_en_passant, perform_castling, perform_promotion,
@@ -14,7 +15,6 @@ use chess_core::{
 use crate::{
     display::{get_texture_atlas, translate_piece_entity, BackgroundColourEvent},
     game_end::GameEndEvent,
-    move_history::{HistoryMove, PieceMoveHistory},
     piece::PieceBundle,
 };
 
@@ -22,7 +22,6 @@ use crate::{
 pub struct BoardBevy {
     pub board: Board,
     pub entities: [[Option<Entity>; BOARD_SIZE]; BOARD_SIZE],
-    pub move_history: PieceMoveHistory,
 }
 
 impl std::fmt::Display for BoardBevy {
@@ -70,12 +69,7 @@ impl BoardBevy {
         let moved_piece = self.board.get_piece(piece_move.from);
 
         // Handle promotion
-        piece_move = apply_promotion(
-            &mut self.board,
-            // texture_atlas_query,
-            moved_piece,
-            piece_move,
-        );
+        piece_move = apply_promotion(&mut self.board, moved_piece, piece_move);
 
         // Update the entity texture to match the promoted piece
         if let PieceMoveType::Promotion(promoted_to) = piece_move.move_type {
@@ -93,7 +87,6 @@ impl BoardBevy {
         let en_passant_tile;
         (en_passant_tile, piece_move, piece_captured, piece_moved_to) = handle_en_passant(
             &mut self.board,
-            // commands,
             piece_move,
             moved_piece,
             piece_captured,
@@ -119,13 +112,9 @@ impl BoardBevy {
 
         // Handle Castling
         let (castling_rights_before_move, kingside_castle);
-        (castling_rights_before_move, piece_move, kingside_castle) = handle_castling(
-            &mut self.board,
-            // transform_query,
-            piece_move,
-            moved_piece,
-        )
-        .expect("Castling could not be handled in apply_move");
+        (castling_rights_before_move, piece_move, kingside_castle) =
+            handle_castling(&mut self.board, piece_move, moved_piece)
+                .expect("Castling could not be handled in apply_move");
 
         // Rook was moved via castling
         if let Some(kingside_castle) = kingside_castle {
@@ -295,7 +284,7 @@ impl BoardBevy {
                 "Entity not found for undo: {}\t\t{:?}\t\t{:?}",
                 piece_move.rev(),
                 self.get_entity(piece_move.to),
-                self.move_history.current_idx
+                self.board.move_history.current_idx
             )
         });
 

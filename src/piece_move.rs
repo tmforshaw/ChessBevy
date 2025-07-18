@@ -55,7 +55,7 @@ pub fn piece_move_event_handler(
                 );
 
                 // Update the move history with this move
-                board.move_history.make_move(
+                board.board.move_history.make_move(
                     piece_move,
                     captured_piece,
                     en_passant_tile,
