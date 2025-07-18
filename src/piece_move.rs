@@ -6,6 +6,7 @@ use crate::{
     board::BoardBevy,
     display::{translate_piece_entity, BackgroundColourEvent},
     game_end::GameEndEvent,
+    uci::{transmit_to_uci, UciMessage},
 };
 
 #[derive(Event)]
@@ -14,6 +15,9 @@ pub struct PieceMoveEvent {
     pub entity: Entity,
 }
 
+/// # Panics
+/// Panics if the move history can't be converted to a string to send to via uci to the engine
+/// Panics if message cannot be sent via uci
 pub fn piece_move_event_handler(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
@@ -61,6 +65,16 @@ pub fn piece_move_event_handler(
                     en_passant_tile,
                     castling_rights_before_move,
                 );
+
+                // Send the moves to the chess engine
+                transmit_to_uci(UciMessage::NewMove {
+                    move_history: board
+                        .board
+                        .move_history
+                        .to_piece_move_string()
+                        .expect("Could not convert move history into piece move string"),
+                })
+                .unwrap_or_else(|e| panic!("{e}"));
             } else {
                 // Reset position
                 translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);

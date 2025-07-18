@@ -17,6 +17,7 @@ use crate::{
     move_history::{move_history_event_handler, MoveHistoryEvent},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
     possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
+    uci::communicate_to_uci,
 };
 
 pub mod bitboard;
@@ -28,6 +29,7 @@ pub mod move_history;
 pub mod piece;
 pub mod piece_move;
 pub mod possible_moves;
+pub mod uci;
 
 fn main() {
     App::new()
@@ -81,4 +83,6 @@ fn setup(
     background_ev.send(BackgroundColourEvent::new_from_player(
         board.board.get_player(),
     ));
+
+    communicate_to_uci();
 }

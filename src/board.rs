@@ -40,6 +40,7 @@ impl BoardBevy {
     /// Panics if the piece which was moved, but its entity could not be found
     /// Panics if en passant handling fails
     /// Panics if castling handling fails
+    #[allow(clippy::too_many_lines)]
     #[allow(clippy::type_complexity)]
     pub fn apply_move(
         &mut self,
