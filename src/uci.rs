@@ -46,11 +46,14 @@ pub enum UciMessage {
     CloseChannel,
 }
 
+const ENGINE_COMMAND: &str = "stockfish";
+// const ENGINE_COMMAND: &str = "target/debug/chess_engine";
+
 /// # Panics
 /// Panics if the engine process cannot start
 pub fn communicate_to_uci() -> UciToBoardReceiver {
     // Start the engine process // TODO This will break when the binary is moved
-    let mut engine_process = Command::new("target/debug/chess_engine")
+    let mut engine_process = Command::new(ENGINE_COMMAND)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -95,6 +98,9 @@ pub fn communicate_to_uci() -> UciToBoardReceiver {
     UciToBoardReceiver(board_rx)
 }
 
+// TODO
+/// # Panics
+/// Panics if the best move reply can't be parsed
 /// # Errors
 /// Returns an error if the stdin cant be locked, flushed, or wrote to
 /// Returns an error if the stdout reader cannot read a line
@@ -118,12 +124,21 @@ pub fn match_uci_message(
             uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
 
             // Tell the engine to find the best move
-            let line = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go", |line| {
-                line.split_whitespace().next() == Some("bestmove")
-            })?;
+            let line = uci_send_message_and_wait_for(
+                shared_stdin,
+                stdout_reader,
+                "go depth 20",
+                |line| line.split_whitespace().next() == Some("bestmove"),
+            )?;
 
             // Convert best move string into the equivalent PieceMove
-            let move_part = line.trim().trim_start_matches("bestmove").trim();
+            let move_part = line
+                .trim()
+                .trim_start_matches("bestmove")
+                // .trim()
+                .split_whitespace()
+                .next()
+                .expect("Could not parse algebraic piece move from bestmove reply");
             let piece_move =
                 PieceMove::from_algebraic(move_part).map_err(UciError::PieceMoveParseError)?;
 
