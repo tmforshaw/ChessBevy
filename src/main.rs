@@ -17,10 +17,8 @@ use crate::{
     move_history::{move_history_event_handler, MoveHistoryEvent},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
     possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
-    uci::{
-        communicate_to_uci, process_uci_to_board_threads, uci_to_board_event_handler,
-        UciToBoardEvent,
-    },
+    uci::communicate_to_uci,
+    uci_event::{process_uci_to_board_threads, uci_to_board_event_handler, UciEvent},
 };
 
 pub mod bitboard;
@@ -33,6 +31,7 @@ pub mod piece;
 pub mod piece_move;
 pub mod possible_moves;
 pub mod uci;
+pub mod uci_event;
 
 fn main() {
     App::new()
@@ -57,7 +56,7 @@ fn main() {
         .add_event::<BackgroundColourEvent>()
         .add_event::<MoveHistoryEvent>()
         .add_event::<GameEndEvent>()
-        .add_event::<UciToBoardEvent>()
+        .add_event::<UciEvent>()
         .init_resource::<BoardBevy>()
         .init_resource::<KeyboardState>()
         .insert_resource(communicate_to_uci())
