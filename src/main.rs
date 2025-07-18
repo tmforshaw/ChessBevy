@@ -10,7 +10,7 @@ use bevy_mod_picking::prelude::*;
 
 use crate::{
     bitboard::{bitboard_event_handler, BitBoardDisplayEvent},
-    board::Board,
+    board::BoardBevy,
     display::{background_colour_event_handler, display_board, BackgroundColourEvent},
     game_end::{game_end_event_handler, GameEndEvent},
     keyboard::{keyboard_event_handler, KeyboardState},
@@ -46,7 +46,7 @@ fn main() {
                 .build(),
             DefaultPickingPlugins,
         ))
-        .init_resource::<Board>()
+        .init_resource::<BoardBevy>()
         .init_resource::<KeyboardState>()
         .add_systems(Startup, (setup, display_board))
         .add_systems(
@@ -73,10 +73,12 @@ fn main() {
 #[allow(clippy::needless_pass_by_value)]
 fn setup(
     mut commands: Commands,
-    board: Res<Board>,
+    board: Res<BoardBevy>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    background_ev.send(BackgroundColourEvent::new_from_player(board.get_player()));
+    background_ev.send(BackgroundColourEvent::new_from_player(
+        board.board.get_player(),
+    ));
 }

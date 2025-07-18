@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 
-use crate::{
-    board::{Board, Player, TilePos},
-    piece::{Piece, PieceBundle, COLOUR_AMT, PIECE_AMT},
+use chess_core::{
+    board::{Player, TilePos},
+    piece::{Piece, COLOUR_AMT, PIECE_AMT},
 };
+
+use crate::{board::BoardBevy, piece::PieceBundle};
 
 pub const BOARD_SIZE: usize = 8;
 pub const PIECE_SIZE: f32 = 200.;
@@ -37,7 +39,7 @@ pub fn display_board(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut board: ResMut<Board>,
+    mut board: ResMut<BoardBevy>,
 ) {
     // Spawn Board Squares
     for rank in 0..BOARD_SIZE {
@@ -68,10 +70,10 @@ pub fn display_board(
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
         for file in 0..BOARD_SIZE {
-            if board.get_piece(TilePos::new(file, rank)) != Piece::None {
+            if board.board.get_piece(TilePos::new(file, rank)) != Piece::None {
                 let entity = commands.spawn(PieceBundle::new(
                     (file, rank),
-                    board.get_piece(TilePos::new(file, rank)),
+                    board.board.get_piece(TilePos::new(file, rank)),
                     texture.clone(),
                     texture_atlas_layout.clone(),
                 ));
