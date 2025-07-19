@@ -46,7 +46,7 @@ pub fn bitboard_event_handler(
             if let Some(board_type) = ev.board_type {
                 let bitboard = board.board.positions[board_type];
 
-                for pos in bitboard.get_positions() {
+                for pos in bitboard.to_tile_positions() {
                     let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
                     commands.spawn((

@@ -21,7 +21,7 @@ use crate::{
 #[derive(Resource, Clone, Default)]
 pub struct BoardBevy {
     pub board: Board,
-    pub entities: [[Option<Entity>; BOARD_SIZE]; BOARD_SIZE],
+    pub entities: [[Option<Entity>; BOARD_SIZE as usize]; BOARD_SIZE as usize],
 }
 
 impl std::fmt::Display for BoardBevy {
@@ -256,9 +256,7 @@ impl BoardBevy {
                     .to_index();
 
                 // Get this player's pawn type
-                let new_piece_type = self
-                    .board
-                    .get_player_piece(PLAYERS[player_index], Piece::WPawn);
+                let new_piece_type = Piece::get_player_piece(PLAYERS[player_index], Piece::WPawn);
 
                 perform_promotion(
                     &mut self.board,
@@ -350,10 +348,10 @@ impl BoardBevy {
 
     #[must_use]
     pub const fn get_entity(&self, tile_pos: TilePos) -> Option<Entity> {
-        self.entities[tile_pos.file][tile_pos.rank]
+        self.entities[tile_pos.file as usize][tile_pos.rank as usize]
     }
 
     pub const fn set_entity(&mut self, tile_pos: TilePos, entity: Option<Entity>) {
-        self.entities[tile_pos.file][tile_pos.rank] = entity;
+        self.entities[tile_pos.file as usize][tile_pos.rank as usize] = entity;
     }
 }

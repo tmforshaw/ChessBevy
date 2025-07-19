@@ -46,8 +46,8 @@ pub enum UciMessage {
     CloseChannel,
 }
 
-const ENGINE_COMMAND: &str = "stockfish";
-// const ENGINE_COMMAND: &str = "target/debug/chess_engine";
+// const ENGINE_COMMAND: &str = "stockfish";
+const ENGINE_COMMAND: &str = "target/debug/chess_engine";
 
 /// # Panics
 /// Panics if the engine process cannot start

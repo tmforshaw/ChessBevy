@@ -21,7 +21,7 @@ impl PieceBundle {
     /// # Panics
     /// Panics if ``Piece::None`` used as a bitboard index for the texture atlas
     pub fn new(
-        (file, rank): (usize, usize),
+        (file, rank): (u32, u32),
         key: Piece,
         texture: Handle<Image>,
         texture_atlas_layout: Handle<TextureAtlasLayout>,

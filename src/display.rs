@@ -7,7 +7,7 @@ use chess_core::{
 
 use crate::{board::BoardBevy, piece::PieceBundle};
 
-pub const BOARD_SIZE: usize = 8;
+pub const BOARD_SIZE: u32 = 8;
 pub const PIECE_SIZE: f32 = 200.;
 pub const PIECE_SIZE_IMG: f32 = 150.;
 pub const BOARD_SPACING: f32 = 0.;
@@ -15,7 +15,7 @@ pub const BOARD_SPACING: f32 = 0.;
 pub const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
 #[must_use]
-pub fn board_to_pixel_coords(file: usize, rank: usize) -> (f32, f32) {
+pub fn board_to_pixel_coords(file: u32, rank: u32) -> (f32, f32) {
     (
         (file as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
         (rank as f32 - BOARD_SIZE as f32 / 2. + 0.5) * (PIECE_SIZE + BOARD_SPACING),
@@ -23,13 +23,13 @@ pub fn board_to_pixel_coords(file: usize, rank: usize) -> (f32, f32) {
 }
 
 #[must_use]
-pub fn pixel_to_board_coords(x: f32, y: f32) -> (usize, usize) {
+pub fn pixel_to_board_coords(x: f32, y: f32) -> (u32, u32) {
     (
-        (((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
-            .unsigned_abs()
+        ((((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
+            .unsigned_abs() as u32)
             .clamp(0, BOARD_SIZE - 1),
-        (((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
-            .unsigned_abs()
+        ((((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
+            .unsigned_abs() as u32)
             .clamp(0, BOARD_SIZE - 1),
     )
 }
