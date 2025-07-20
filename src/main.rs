@@ -59,9 +59,9 @@ fn main() {
         .add_event::<UciEvent>()
         .init_resource::<BoardBevy>()
         .init_resource::<KeyboardState>()
-        .insert_resource(communicate_to_uci())
+        // .insert_resource(communicate_to_uci())
         .add_systems(Startup, (setup, display_board))
-        .add_systems(PreUpdate, process_uci_to_board_threads)
+        // .add_systems(PreUpdate, process_uci_to_board_threads)
         .add_systems(
             Update,
             (
@@ -72,7 +72,7 @@ fn main() {
                 background_colour_event_handler,
                 move_history_event_handler,
                 game_end_event_handler,
-                uci_to_board_event_handler,
+                // uci_to_board_event_handler,
             ),
         )
         .run();

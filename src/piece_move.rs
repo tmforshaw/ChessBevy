@@ -58,15 +58,15 @@ pub fn piece_move_event_handler(
                 piece_move,
             );
 
-            // Send the moves to the chess engine
-            transmit_to_uci(UciMessage::NewMove {
-                move_history: board
-                    .board
-                    .move_history
-                    .to_piece_move_string()
-                    .expect("Could not convert move history into piece move string"),
-            })
-            .unwrap_or_else(|e| panic!("{e}"));
+            // // Send the moves to the chess engine
+            // transmit_to_uci(UciMessage::NewMove {
+            //     move_history: board
+            //         .board
+            //         .move_history
+            //         .to_piece_move_string()
+            //         .expect("Could not convert move history into piece move string"),
+            // })
+            // .unwrap_or_else(|e| panic!("{e}"));
         } else {
             // Reset position
             translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);

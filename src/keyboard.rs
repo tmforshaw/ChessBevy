@@ -9,6 +9,7 @@ pub struct KeyboardState {
     pub shift_pressed: bool,
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn keyboard_event_handler(
     mut keyboard_state: ResMut<KeyboardState>,
     mut ev_keyboard: EventReader<KeyboardInput>,
@@ -21,13 +22,14 @@ pub fn keyboard_event_handler(
                 keyboard_state.shift_pressed = true;
             }
             if ev.key_code == KeyCode::Digit0 {
-                ev_display_event.send(BitBoardDisplayEvent::new(None, true, false));
+                ev_display_event.send(BitBoardDisplayEvent::new(None, true, false, 0));
             }
             if ev.key_code == KeyCode::Digit1 {
                 ev_display_event.send(BitBoardDisplayEvent::new(
                     Some(Piece::WPawn),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit2 {
@@ -35,6 +37,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::BPawn),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit3 {
@@ -42,6 +45,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::WBishop),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit4 {
@@ -49,6 +53,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::BBishop),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit5 {
@@ -56,6 +61,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::WKnight),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit6 {
@@ -63,6 +69,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::BKnight),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit7 {
@@ -70,6 +77,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::WRook),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit8 {
@@ -77,6 +85,7 @@ pub fn keyboard_event_handler(
                     Some(Piece::BRook),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::Digit9 {
@@ -84,13 +93,33 @@ pub fn keyboard_event_handler(
                     Some(Piece::WQueen),
                     keyboard_state.shift_pressed,
                     true,
+                    0,
                 ));
             }
             if ev.key_code == KeyCode::KeyQ {
                 ev_display_event.send(BitBoardDisplayEvent::new(
                     None,
                     keyboard_state.shift_pressed,
-                    true,
+                    false,
+                    1,
+                ));
+            }
+
+            if ev.key_code == KeyCode::KeyE {
+                ev_display_event.send(BitBoardDisplayEvent::new(
+                    None,
+                    keyboard_state.shift_pressed,
+                    false,
+                    2,
+                ));
+            }
+
+            if ev.key_code == KeyCode::KeyR {
+                ev_display_event.send(BitBoardDisplayEvent::new(
+                    None,
+                    keyboard_state.shift_pressed,
+                    false,
+                    3,
                 ));
             }
 

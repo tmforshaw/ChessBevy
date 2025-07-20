@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
-use chess_core::{board::TilePos, piece::Piece};
+use chess_core::{
+    board::{Player, TilePos},
+    piece::Piece,
+};
 
 use crate::{
     board::BoardBevy,
@@ -12,15 +15,22 @@ pub struct BitBoardDisplayEvent {
     pub board_type: Option<Piece>,
     pub clear: bool,
     pub show: bool,
+    pub board_unshow_type: usize,
 }
 
 impl BitBoardDisplayEvent {
     #[must_use]
-    pub const fn new(board_type: Option<Piece>, clear: bool, show: bool) -> Self {
+    pub const fn new(
+        board_type: Option<Piece>,
+        clear: bool,
+        show: bool,
+        board_unshow_type: usize,
+    ) -> Self {
         Self {
             board_type,
             clear,
             show,
+            board_unshow_type,
         }
     }
 }
@@ -42,50 +52,79 @@ pub fn bitboard_event_handler(
             }
         }
 
-        if ev.show {
-            if let Some(board_type) = ev.board_type {
-                let bitboard = board.board.positions[board_type];
+        if let Some(board_type) = ev.board_type {
+            let bitboard = board.board.positions[board_type];
 
-                for pos in bitboard.to_tile_positions() {
-                    let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+            for pos in bitboard.to_tile_positions() {
+                let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
-                    commands.spawn((
-                        SpriteBundle {
-                            sprite: Sprite {
-                                color: Color::rgba(1., 0., 0., 0.75),
-                                ..default()
-                            },
-                            transform: Transform::from_xyz(x, y, 2.)
-                                .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgba(1., 0., 0., 0.75),
                             ..default()
                         },
-                        BitBoardMarker,
-                    ));
+                        transform: Transform::from_xyz(x, y, 2.)
+                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        ..default()
+                    },
+                    BitBoardMarker,
+                ));
+            }
+        } else {
+            let mut xy = Vec::new();
+
+            match ev.board_unshow_type {
+                1 => {
+                    // Show en passant tile
+                    if board.board.positions.en_passant_tile == 0 {
+                        return;
+                    }
+
+                    let pos =
+                        TilePos::from_index(board.board.positions.en_passant_tile.trailing_zeros());
+
+                    xy.push(board_to_pixel_coords(pos.file, pos.rank));
                 }
-            } else {
-                if board.board.positions.en_passant_tile == 0 {
-                    return;
+                2 | 3 => {
+                    // Show attacked tiles
+
+                    let player = if ev.board_unshow_type == 2 {
+                        Player::White
+                    } else {
+                        Player::Black
+                    };
+
+                    let mut attacked = board
+                        .board
+                        .positions
+                        .get_attacked_tiles(player)
+                        .to_tile_positions()
+                        .iter()
+                        .map(|&pos| Into::<(u32, u32)>::into(pos))
+                        .map(|(i, j)| board_to_pixel_coords(i, j))
+                        .collect::<Vec<_>>();
+
+                    xy.append(&mut attacked);
                 }
+                _ => {
+                    continue;
+                }
+            }
 
-                let pos =
-                    TilePos::from_index(board.board.positions.en_passant_tile.trailing_zeros());
-
-                let xy = [board_to_pixel_coords(pos.file, pos.rank)];
-
-                for (x, y) in xy {
-                    commands.spawn((
-                        SpriteBundle {
-                            sprite: Sprite {
-                                color: Color::rgba(1., 0., 0., 0.75),
-                                ..default()
-                            },
-                            transform: Transform::from_xyz(x, y, 2.)
-                                .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+            for (x, y) in xy {
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgba(1., 0., 0., 0.75),
                             ..default()
                         },
-                        BitBoardMarker,
-                    ));
-                }
+                        transform: Transform::from_xyz(x, y, 2.)
+                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        ..default()
+                    },
+                    BitBoardMarker,
+                ));
             }
         }
     }
