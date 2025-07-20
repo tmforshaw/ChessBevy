@@ -70,10 +70,10 @@ pub fn display_board(
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
         for file in 0..BOARD_SIZE {
-            if board.board.get_piece(TilePos::new(file, rank)) != Piece::None {
+            if board.board.positions.get_piece(TilePos::new(file, rank)) != Piece::None {
                 let entity = commands.spawn(PieceBundle::new(
                     (file, rank),
-                    board.board.get_piece(TilePos::new(file, rank)),
+                    board.board.positions.get_piece(TilePos::new(file, rank)),
                     texture.clone(),
                     texture_atlas_layout.clone(),
                 ));

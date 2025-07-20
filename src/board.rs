@@ -54,7 +54,7 @@ impl BoardBevy {
         let mut piece_captured = false;
 
         // Capture any pieces that should be captured
-        let mut piece_moved_to = if self.board.get_piece(piece_move.to) == Piece::None {
+        let mut piece_moved_to = if self.board.positions.get_piece(piece_move.to) == Piece::None {
             Piece::None
         } else {
             piece_captured = true;
@@ -64,10 +64,10 @@ impl BoardBevy {
 
             commands.entity(captured_entity).despawn();
 
-            self.board.get_piece(piece_move.to)
+            self.board.positions.get_piece(piece_move.to)
         };
 
-        let moved_piece = self.board.get_piece(piece_move.from);
+        let moved_piece = self.board.positions.get_piece(piece_move.from);
 
         // Handle promotion
         piece_move = apply_promotion(&mut self.board, moved_piece, piece_move);
@@ -207,7 +207,7 @@ impl BoardBevy {
         match piece_move.move_type {
             PieceMoveType::Castling => {
                 // Perform the castling
-                let moved_piece = self.board.get_piece(piece_move.to);
+                let moved_piece = self.board.positions.get_piece(piece_move.to);
                 let (_, kingside_castle) = perform_castling(
                     &mut self.board,
                     // transform_query,
@@ -250,6 +250,7 @@ impl BoardBevy {
                 // Get the piece's player as an index
                 let player_index = self
                     .board
+                    .positions
                     .get_piece(piece_move.to)
                     .to_player()
                     .expect("Player could not be found via piece move for promotion")
@@ -314,7 +315,9 @@ impl BoardBevy {
                     ));
 
                     // Update the board to make it aware of the spawned piece
-                    self.board.set_piece(captured_piece_tile, captured_piece);
+                    self.board
+                        .positions
+                        .set_piece(captured_piece_tile, captured_piece);
                     self.set_entity(captured_piece_tile, Some(captured_entity.id()));
                 }
             }
@@ -333,7 +336,7 @@ impl BoardBevy {
     }
 
     pub fn move_piece_and_entity(&mut self, piece_move: PieceMove) {
-        self.board.move_piece(piece_move);
+        self.board.positions.move_piece(piece_move);
 
         let moved_entity = self.get_entity(piece_move.from);
         self.set_entity(piece_move.from, None);

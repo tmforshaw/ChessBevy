@@ -34,10 +34,12 @@ pub fn piece_move_event_handler(
 
         if !board
             .board
+            .positions
             .get_piece(piece_move.to)
             .is_player(board.board.player)
             && board
                 .board
+                .positions
                 .get_piece(piece_move.from)
                 .is_player(board.board.player)
             && board
