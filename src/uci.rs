@@ -7,12 +7,14 @@ use std::{
     sync::{mpsc, Arc, Mutex, OnceLock},
 };
 
-use chess_core::piece_move::PieceMove;
+use chess_core::{board::Player, piece_move::PieceMove};
 
 use crate::uci_event::{UciToBoardMessage, UciToBoardReceiver};
 
 const ENGINE_COMMAND: &str = "stockfish";
 // const ENGINE_COMMAND: &str = "target/debug/chess_engine";
+
+pub const ENGINE_PLAYER: Player = Player::Black;
 
 static UCI_TX: OnceLock<Mutex<Option<mpsc::Sender<UciMessage>>>> = OnceLock::new();
 

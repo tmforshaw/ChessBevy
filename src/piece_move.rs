@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use chess_core::piece_move::PieceMove;
+use chess_core::{board::Player, piece_move::PieceMove};
 
 use crate::{
     board::BoardBevy,
     display::{translate_piece_entity, BackgroundColourEvent},
     game_end::GameEndEvent,
-    uci::{transmit_to_uci, UciMessage},
+    uci::{transmit_to_uci, UciMessage, ENGINE_PLAYER},
 };
 
 #[derive(Event)]
@@ -32,7 +32,7 @@ pub fn piece_move_event_handler(
 
         // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
 
-        // if board.board.get_player() == Player::White {
+        // TODO ENGINE_PLAYER can't be white
         if !board.board.positions.get_piece(piece_move.to).is_player(board.board.player)
             && board.board.positions.get_piece(piece_move.from).is_player(board.board.player)
             && board
@@ -40,6 +40,7 @@ pub fn piece_move_event_handler(
                 .positions
                 .get_possible_moves(piece_move.from)
                 .contains(&piece_move)
+            && board.board.get_player() != ENGINE_PLAYER
         {
             // Apply the move to the board
             board.apply_move(
@@ -51,19 +52,18 @@ pub fn piece_move_event_handler(
                 piece_move,
             );
 
-            // // Send the moves to the chess engine
-            // transmit_to_uci(UciMessage::NewMove {
-            //     move_history: board
-            //         .board
-            //         .move_history
-            //         .to_piece_move_string()
-            //         .expect("Could not convert move history into piece move string"),
-            // })
-            // .unwrap_or_else(|e| panic!("{e}"));
+            // Send the moves to the chess engine
+            transmit_to_uci(UciMessage::NewMove {
+                move_history: board
+                    .board
+                    .move_history
+                    .to_piece_move_string()
+                    .expect("Could not convert move history into piece move string"),
+            })
+            .unwrap_or_else(|e| panic!("{e}"));
         } else {
             // Reset position
             translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);
         }
-        // }
     }
 }
