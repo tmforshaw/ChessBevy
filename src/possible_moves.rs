@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use chess_core::{board::TilePos, possible_moves::get_possible_moves};
+use chess_core::board::TilePos;
 
 use crate::{
     board::BoardBevy,
@@ -27,23 +27,21 @@ pub fn possible_move_event_handler(
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            if let Some(possible_moves) = get_possible_moves(&board.board, ev.from) {
-                for pos in possible_moves {
-                    let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
+            for pos in board.board.positions.get_possible_moves(ev.from) {
+                let (x, y) = board_to_pixel_coords(pos.to.file, pos.to.rank);
 
-                    commands.spawn((
-                        SpriteBundle {
-                            sprite: Sprite {
-                                color: POSSIBLE_MOVE_COLOUR,
-                                ..default()
-                            },
-                            transform: Transform::from_xyz(x, y, 2.)
-                                .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: POSSIBLE_MOVE_COLOUR,
                             ..default()
                         },
-                        PossibleMoveMarker,
-                    ));
-                }
+                        transform: Transform::from_xyz(x, y, 2.)
+                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        ..default()
+                    },
+                    PossibleMoveMarker,
+                ));
             }
         } else {
             // Stop displaying all entities

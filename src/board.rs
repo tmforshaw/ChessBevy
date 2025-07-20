@@ -159,7 +159,7 @@ impl BoardBevy {
         translate_piece_entity(transform_query, piece_entity, piece_move.to);
 
         // Check if this move has caused the game to end
-        if let Some(winning_player) = self.board.has_game_ended() {
+        if let Some(winning_player) = self.board.positions.has_game_ended() {
             // Game ended via checkmate or stalemate
             game_end_ev.send(GameEndEvent::new(winning_player));
         } else {
@@ -193,7 +193,7 @@ impl BoardBevy {
         history_move: HistoryMove,
     ) {
         // Check if this move caused the game to end
-        let game_didnt_end = self.board.has_game_ended().is_none();
+        let game_didnt_end = self.board.positions.has_game_ended().is_none();
 
         let (piece_move, captured_piece, en_passant_tile, castling_rights) = history_move.into();
 
