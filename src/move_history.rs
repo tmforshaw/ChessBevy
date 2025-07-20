@@ -22,15 +22,13 @@ pub fn move_history_event_handler(
 ) {
     for ev in move_history_ev.read() {
         // Traverse the history in the specified direction
-        let piece_move_history = if ev.backwards {
+        let history_move = if ev.backwards {
             board.board.move_history.traverse_prev()
         } else {
             board.board.move_history.traverse_next()
         };
 
-        println!("{:?}", board.board.move_history);
-
-        let Some(history_move) = piece_move_history else {
+        let Some(history_move) = history_move else {
             // History is empty, or index went out of bounds (Don't perform any moves)
             return;
         };
@@ -54,7 +52,7 @@ pub fn move_history_event_handler(
                 &mut texture_atlas_query,
                 &mut background_ev,
                 &mut game_end_ev,
-                piece_move_original,
+                piece_move_original.with_show(false),
             );
         }
     }

@@ -70,11 +70,7 @@ pub fn bitboard_event_handler(
                 let pos =
                     TilePos::from_index(board.board.positions.en_passant_tile.trailing_zeros());
 
-                let xy = [
-                    board_to_pixel_coords(3, 5),
-                    board_to_pixel_coords(1, 0),
-                    board_to_pixel_coords(pos.file, pos.rank),
-                ];
+                let xy = [board_to_pixel_coords(pos.file, pos.rank)];
 
                 for (x, y) in xy {
                     commands.spawn((
