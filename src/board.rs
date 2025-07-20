@@ -6,7 +6,7 @@ use chess_core::{
     board::{Board, TilePos, BOARD_SIZE, PLAYERS},
     move_history::HistoryMove,
     piece::Piece,
-    piece_move::{perform_promotion, PieceMove, PieceMoveType},
+    piece_move::{PieceMove, PieceMoveType},
 };
 
 use crate::{

@@ -28,7 +28,7 @@ pub fn piece_move_event_handler(
     mut game_end_ev: EventWriter<GameEndEvent>,
 ) {
     for ev in ev_piece_move.read() {
-        let mut piece_move = ev.piece_move;
+        let piece_move = ev.piece_move;
 
         // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
 
@@ -58,23 +58,15 @@ pub fn piece_move_event_handler(
                 piece_move,
             );
 
-            // // Update the move history with this move
-            // board.board.move_history.make_move(
-            //     piece_move,
-            //     captured_piece,
-            //     en_passant_tile,
-            //     castling_rights_before_move,
-            // );
-
-            // // Send the moves to the chess engine
-            // transmit_to_uci(UciMessage::NewMove {
-            //     move_history: board
-            //         .board
-            //         .move_history
-            //         .to_piece_move_string()
-            //         .expect("Could not convert move history into piece move string"),
-            // })
-            // .unwrap_or_else(|e| panic!("{e}"));
+            // Send the moves to the chess engine
+            transmit_to_uci(UciMessage::NewMove {
+                move_history: board
+                    .board
+                    .move_history
+                    .to_piece_move_string()
+                    .expect("Could not convert move history into piece move string"),
+            })
+            .unwrap_or_else(|e| panic!("{e}"));
         } else {
             // Reset position
             translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);
