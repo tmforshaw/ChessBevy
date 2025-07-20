@@ -11,6 +11,9 @@ use chess_core::piece_move::PieceMove;
 
 use crate::uci_event::{UciToBoardMessage, UciToBoardReceiver};
 
+const ENGINE_COMMAND: &str = "stockfish";
+// const ENGINE_COMMAND: &str = "target/debug/chess_engine";
+
 static UCI_TX: OnceLock<Mutex<Option<mpsc::Sender<UciMessage>>>> = OnceLock::new();
 
 #[derive(Error, Debug)]
@@ -46,9 +49,6 @@ pub enum UciMessage {
     CloseChannel,
 }
 
-// const ENGINE_COMMAND: &str = "stockfish";
-const ENGINE_COMMAND: &str = "target/debug/chess_engine";
-
 /// # Panics
 /// Panics if the engine process cannot start
 pub fn communicate_to_uci() -> UciToBoardReceiver {
@@ -82,14 +82,8 @@ pub fn communicate_to_uci() -> UciToBoardReceiver {
     let shared_stdin_clone = shared_stdin.clone();
     std::thread::spawn(move || {
         for message in uci_rx {
-            match_uci_message(
-                message,
-                &shared_stdin_clone,
-                &mut reader,
-                &board_tx,
-                &mut engine_process,
-            )
-            .unwrap_or_else(|e| panic!("{e}"));
+            match_uci_message(message, &shared_stdin_clone, &mut reader, &board_tx, &mut engine_process)
+                .unwrap_or_else(|e| panic!("{e}"));
         }
 
         println!("Mpsc Channel Closed");
@@ -118,18 +112,16 @@ pub fn match_uci_message(
             lock_std_and_write(
                 shared_stdin,
                 format!("position startpos moves {move_history}"),
+                // format!("position fen {DEFAULT_FEN} moves {move_history}"),
             )?;
 
             // Read and print engine output until it reports "readyok"
             uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
 
             // Tell the engine to find the best move
-            let line = uci_send_message_and_wait_for(
-                shared_stdin,
-                stdout_reader,
-                "go depth 20",
-                |line| line.split_whitespace().next() == Some("bestmove"),
-            )?;
+            let line = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 20", |line| {
+                line.split_whitespace().next() == Some("bestmove")
+            })?;
 
             // Convert best move string into the equivalent PieceMove
             let move_part = line
@@ -139,8 +131,7 @@ pub fn match_uci_message(
                 .split_whitespace()
                 .next()
                 .expect("Could not parse algebraic piece move from bestmove reply");
-            let piece_move =
-                PieceMove::from_algebraic(move_part).map_err(UciError::PieceMoveParseError)?;
+            let piece_move = PieceMove::from_algebraic(move_part).map_err(UciError::PieceMoveParseError)?;
 
             // Send this move to the board
             board_tx.send(UciToBoardMessage::BestMove(piece_move))?;
@@ -153,9 +144,7 @@ pub fn match_uci_message(
             lock_std_and_write(shared_stdin, "quit")?;
 
             // Wait for the engine process to close
-            engine_process
-                .wait()
-                .map_err(|_| UciError::EngineProcessWaitError)?;
+            engine_process.wait().map_err(|_| UciError::EngineProcessWaitError)?;
         }
     }
 
@@ -164,10 +153,7 @@ pub fn match_uci_message(
 
 /// # Errors
 /// Returns an error if the Stdin or Stdout cannot be flushed
-pub fn greet_uci(
-    stdin: &Arc<Mutex<ChildStdin>>,
-    stdout_reader: &mut BufReader<ChildStdout>,
-) -> Result<(), UciError> {
+pub fn greet_uci(stdin: &Arc<Mutex<ChildStdin>>, stdout_reader: &mut BufReader<ChildStdout>) -> Result<(), UciError> {
     // Initialise the engine and await its response of "uciok"
     uci_send_message_and_wait_for(stdin, stdout_reader, "uci", |line| line == "uciok")?;
 
@@ -244,22 +230,15 @@ pub fn uci_send_message_and_wait_for(
 /// Returns an error if the ``Stdin`` ``Mutex`` cannot be locked
 /// Returns an error if ``Stdin`` cannot be written to or flushed
 /// Returns an error if a line from ``Stdout`` ``BufReader`` cannot be read
-pub fn uci_is_ready_and_wait(
-    stdin: &Arc<Mutex<ChildStdin>>,
-    stdout_reader: &mut BufReader<ChildStdout>,
-) -> Result<(), UciError> {
-    uci_send_message_and_wait_for(stdin, stdout_reader, "isready", |line| line == "readyok")
-        .map(|_| ())
+pub fn uci_is_ready_and_wait(stdin: &Arc<Mutex<ChildStdin>>, stdout_reader: &mut BufReader<ChildStdout>) -> Result<(), UciError> {
+    uci_send_message_and_wait_for(stdin, stdout_reader, "isready", |line| line == "readyok").map(|_| ())
 }
 
 /// # Errors
 /// Returns an error if the ``Stdin`` ``Mutex`` can't be locked
 /// Returns an error if the ``Stdin`` can't be written to
 /// Returns an error if the ``Stdin`` can't be flushed
-pub fn lock_std_and_write<S: std::fmt::Display>(
-    stdin: &Arc<Mutex<ChildStdin>>,
-    message: S,
-) -> Result<(), UciError> {
+pub fn lock_std_and_write<S: std::fmt::Display>(stdin: &Arc<Mutex<ChildStdin>>, message: S) -> Result<(), UciError> {
     {
         let mut locked_stdin = stdin.lock().map_err(|_| UciError::MutexLockError)?;
         writeln!(locked_stdin, "{message}")?;

@@ -23,11 +23,7 @@ pub struct BoardBevy {
 
 impl std::fmt::Display for BoardBevy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Current Player: {:?}\n{}\n",
-            self.board.player, self.board.positions
-        )
+        writeln!(f, "Current Player: {:?}\n{}\n", self.board.player, self.board.positions)
     }
 }
 
@@ -75,35 +71,28 @@ impl BoardBevy {
             }
             PieceMoveType::Castling => {
                 // Rook was moved via castling
-                let kingside_castle = piece_move.from.file > piece_move.to.file;
+                let kingside_castle = piece_move.from.file < piece_move.to.file;
 
                 // TODO This is duplicated code
                 let (rook_pos, new_rook_pos) = if kingside_castle {
-                    (
-                        TilePos::new(7, piece_move.from.rank),
-                        TilePos::new(5, piece_move.from.rank),
-                    )
+                    (TilePos::new(7, piece_move.from.rank), TilePos::new(5, piece_move.from.rank))
                 } else {
-                    (
-                        TilePos::new(0, piece_move.from.rank),
-                        TilePos::new(3, piece_move.from.rank),
-                    )
+                    (TilePos::new(0, piece_move.from.rank), TilePos::new(3, piece_move.from.rank))
                 };
 
                 // TODO This is duplicated code
                 // Move the rook entity
                 translate_piece_entity(
                     transform_query,
-                    self.get_entity(rook_pos)
-                        .expect("Rook entity was not at Rook pos"),
+                    self.get_entity(rook_pos).expect("Rook entity was not at Rook pos"),
                     new_rook_pos,
                 );
             }
             PieceMoveType::Promotion(promoted_to) => {
                 // Change the entity texture to the correct piece
-                let piece_entity = self.get_entity(piece_move.from).unwrap_or_else(|| {
-                    panic!("Entity not found for piece at pos {}", piece_move.from)
-                });
+                let piece_entity = self
+                    .get_entity(piece_move.from)
+                    .unwrap_or_else(|| panic!("Entity not found for piece at pos {}", piece_move.from));
                 let mut texture_atlas = texture_atlas_query
                     .get_mut(piece_entity)
                     .expect("Could not find piece entity in texture atlas");
@@ -125,9 +114,7 @@ impl BoardBevy {
         } else {
             // self.board.next_player(); // Already performed next player in Board apply_move
             // Change background colour to show current player
-            background_ev.send(BackgroundColourEvent::new_from_player(
-                self.board.get_player(),
-            ));
+            background_ev.send(BackgroundColourEvent::new_from_player(self.board.get_player()));
         }
     }
 
@@ -173,8 +160,7 @@ impl BoardBevy {
                         piece_move.to
                     };
 
-                    let (texture, texture_atlas_layout) =
-                        get_texture_atlas(asset_server, texture_atlas_layouts);
+                    let (texture, texture_atlas_layout) = get_texture_atlas(asset_server, texture_atlas_layouts);
 
                     // Create new entity for the captured piece
                     let captured_entity = commands.spawn(PieceBundle::new(
@@ -189,7 +175,7 @@ impl BoardBevy {
                 }
             }
             PieceMoveType::Castling => {
-                let kingside_castle = piece_move.from.file > piece_move.to.file;
+                let kingside_castle = piece_move.from.file < piece_move.to.file;
 
                 // Rook was moved via castling
 
@@ -200,18 +186,14 @@ impl BoardBevy {
                         TilePos::new(BOARD_SIZE - 1, piece_move.from.rank),
                     )
                 } else {
-                    (
-                        TilePos::new(0, piece_move.from.rank),
-                        TilePos::new(0, piece_move.from.rank),
-                    )
+                    (TilePos::new(0, piece_move.from.rank), TilePos::new(0, piece_move.from.rank))
                 };
 
                 // TODO This is duplicated code
                 // Move the rook entity
                 translate_piece_entity(
                     transform_query,
-                    self.get_entity(rook_pos)
-                        .expect("Rook entity was not at Rook pos"),
+                    self.get_entity(rook_pos).expect("Rook entity was not at Rook pos"),
                     new_rook_pos,
                 );
 
@@ -231,9 +213,9 @@ impl BoardBevy {
 
                 // TODO THIS IS DUPLICATED CODE
                 // Change the entity texture to the correct piece
-                let piece_entity = self.get_entity(piece_move.from).unwrap_or_else(|| {
-                    panic!("Entity not found for piece at pos {}", piece_move.from)
-                });
+                let piece_entity = self
+                    .get_entity(piece_move.from)
+                    .unwrap_or_else(|| panic!("Entity not found for piece at pos {}", piece_move.from));
                 let mut texture_atlas = texture_atlas_query
                     .get_mut(piece_entity)
                     .expect("Could not find piece entity in texture atlas");
@@ -242,9 +224,7 @@ impl BoardBevy {
         }
 
         // Change background colour to show current player
-        background_ev.send(BackgroundColourEvent::new_from_player(
-            self.board.get_player(),
-        ));
+        background_ev.send(BackgroundColourEvent::new_from_player(self.board.get_player()));
     }
 
     pub fn move_piece_and_entity(&mut self, piece_move: PieceMove) {

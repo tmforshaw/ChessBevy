@@ -32,16 +32,9 @@ pub fn piece_move_event_handler(
 
         // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
 
-        if !board
-            .board
-            .positions
-            .get_piece(piece_move.to)
-            .is_player(board.board.player)
-            && board
-                .board
-                .positions
-                .get_piece(piece_move.from)
-                .is_player(board.board.player)
+        // if board.board.get_player() == Player::White {
+        if !board.board.positions.get_piece(piece_move.to).is_player(board.board.player)
+            && board.board.positions.get_piece(piece_move.from).is_player(board.board.player)
             && board
                 .board
                 .positions
@@ -71,5 +64,6 @@ pub fn piece_move_event_handler(
             // Reset position
             translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);
         }
+        // }
     }
 }
