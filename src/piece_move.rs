@@ -49,13 +49,7 @@ pub fn piece_move_event_handler(
                 .contains(&piece_move)
         {
             // Apply the move to the board
-            let (en_passant_tile, castling_rights_before_move, captured_piece);
-            (
-                piece_move,
-                en_passant_tile,
-                castling_rights_before_move,
-                captured_piece,
-            ) = board.apply_move(
+            board.apply_move(
                 &mut commands,
                 &mut transform_query,
                 &mut texture_atlas_query,
@@ -64,23 +58,23 @@ pub fn piece_move_event_handler(
                 piece_move,
             );
 
-            // Update the move history with this move
-            board.board.move_history.make_move(
-                piece_move,
-                captured_piece,
-                en_passant_tile,
-                castling_rights_before_move,
-            );
+            // // Update the move history with this move
+            // board.board.move_history.make_move(
+            //     piece_move,
+            //     captured_piece,
+            //     en_passant_tile,
+            //     castling_rights_before_move,
+            // );
 
-            // Send the moves to the chess engine
-            transmit_to_uci(UciMessage::NewMove {
-                move_history: board
-                    .board
-                    .move_history
-                    .to_piece_move_string()
-                    .expect("Could not convert move history into piece move string"),
-            })
-            .unwrap_or_else(|e| panic!("{e}"));
+            // // Send the moves to the chess engine
+            // transmit_to_uci(UciMessage::NewMove {
+            //     move_history: board
+            //         .board
+            //         .move_history
+            //         .to_piece_move_string()
+            //         .expect("Could not convert move history into piece move string"),
+            // })
+            // .unwrap_or_else(|e| panic!("{e}"));
         } else {
             // Reset position
             translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);

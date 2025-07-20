@@ -28,6 +28,8 @@ pub fn move_history_event_handler(
             board.board.move_history.traverse_next()
         };
 
+        println!("{:?}", board.board.move_history);
+
         let Some(history_move) = piece_move_history else {
             // History is empty, or index went out of bounds (Don't perform any moves)
             return;
@@ -46,7 +48,7 @@ pub fn move_history_event_handler(
         } else {
             let (piece_move_original, _, _, _) = history_move.into();
 
-            let _ = board.apply_move(
+            board.apply_move(
                 &mut commands,
                 &mut transform_query,
                 &mut texture_atlas_query,

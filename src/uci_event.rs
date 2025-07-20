@@ -36,15 +36,9 @@ pub fn uci_to_board_event_handler(
     // Listen for messages from the Engine Listener thread, then apply moves
     for ev in ev_uci_to_board.read() {
         match ev.message {
-            UciToBoardMessage::BestMove(mut piece_move) => {
+            UciToBoardMessage::BestMove(piece_move) => {
                 // Apply the move to the board
-                let (en_passant_tile, castling_rights_before_move, captured_piece);
-                (
-                    piece_move,
-                    en_passant_tile,
-                    castling_rights_before_move,
-                    captured_piece,
-                ) = board.apply_move(
+                board.apply_move(
                     &mut commands,
                     &mut transform_query,
                     &mut texture_atlas_query,
@@ -53,13 +47,13 @@ pub fn uci_to_board_event_handler(
                     piece_move,
                 );
 
-                // Update the move history with this move
-                board.board.move_history.make_move(
-                    piece_move,
-                    captured_piece,
-                    en_passant_tile,
-                    castling_rights_before_move,
-                );
+                // // Update the move history with this move
+                // board.board.move_history.make_move(
+                //     piece_move,
+                //     captured_piece,
+                //     en_passant_tile,
+                //     castling_rights_before_move,
+                // );
             }
         }
     }

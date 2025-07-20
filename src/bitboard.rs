@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use chess_core::piece::Piece;
+use chess_core::{board::TilePos, piece::Piece};
 
 use crate::{
     board::BoardBevy,
@@ -63,9 +63,13 @@ pub fn bitboard_event_handler(
                     ));
                 }
             } else {
-                let Some(pos) = board.board.en_passant_on_last_move else {
+                if board.board.positions.en_passant_tile == 0 {
                     return;
-                };
+                }
+
+                let pos =
+                    TilePos::from_index(board.board.positions.en_passant_tile.trailing_zeros());
+
                 let xy = [
                     board_to_pixel_coords(3, 5),
                     board_to_pixel_coords(1, 0),
