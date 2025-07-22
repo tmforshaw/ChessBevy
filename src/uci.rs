@@ -12,7 +12,10 @@ use chess_core::{
     piece_move::PieceMove,
 };
 
-use crate::uci_event::{UciToBoardMessage, UciToBoardReceiver};
+use crate::{
+    uci_event::{UciToBoardMessage, UciToBoardReceiver},
+    uci_info::{uci_parse_info, UciScore},
+};
 
 const ENGINE_COMMAND: &str = "stockfish";
 // const ENGINE_COMMAND: &str = "target/debug/chess_engine";
@@ -41,11 +44,14 @@ pub enum UciError {
     #[error("Could not find UCI_TX")]
     TxNotFound,
 
-    #[error("Piece move could not be parsed for UCI: {0}")]
+    #[error("Piece move could not be parsed for UCI:\n\t{0}")]
     PieceMoveParseError(String),
 
     #[error("Engine process could not be waited on")]
     EngineProcessWaitError,
+
+    #[error("Integer couldn't be parsed:\n\t{0}")]
+    NumericalParseError(#[from] std::num::ParseIntError),
 }
 
 #[derive(Debug, Clone)]
@@ -123,15 +129,14 @@ pub fn match_uci_message(
             uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
 
             // Tell the engine to find the best move
-            let line = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 20", |line| {
+            let lines = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 20", |line| {
                 line.split_whitespace().next() == Some("bestmove")
             })?;
 
             // Convert best move string into the equivalent PieceMove
-            let move_part = line
+            let move_part = lines[0]
                 .trim()
                 .trim_start_matches("bestmove")
-                // .trim()
                 .split_whitespace()
                 .next()
                 .expect("Could not parse algebraic piece move from bestmove reply");
@@ -139,6 +144,19 @@ pub fn match_uci_message(
 
             // Send this move to the board
             board_tx.send(UciToBoardMessage::BestMove(piece_move))?;
+
+            // Parse the final info line from the UCI reply
+            let uci_info = uci_parse_info(lines[1].trim())?;
+
+            // The score is in centipawns
+            match uci_info.score {
+                UciScore::Centipawn(score) => {
+                    board_tx.send(UciToBoardMessage::Score(score))?;
+                }
+                UciScore::Mate(mate_in) => {
+                    board_tx.send(UciToBoardMessage::Mate(mate_in))?;
+                }
+            }
         }
         UciMessage::CloseChannel => {
             // Close the channel
@@ -160,6 +178,15 @@ pub fn match_uci_message(
 pub fn greet_uci(stdin: &Arc<Mutex<ChildStdin>>, stdout_reader: &mut BufReader<ChildStdout>) -> Result<(), UciError> {
     // Initialise the engine and await its response of "uciok"
     uci_send_message_and_wait_for(stdin, stdout_reader, "uci", |line| line == "uciok")?;
+
+    // Read and print engine output until it reports "readyok"
+    uci_is_ready_and_wait(stdin, stdout_reader)?;
+
+    // // Set options for the engine
+    // lock_std_and_write(stdin, "setoption name MultiPV value 3")?;
+
+    // // Read and print engine output until it reports "readyok"
+    // uci_is_ready_and_wait(stdin, stdout_reader)?;
 
     // Read and print engine output until it reports "readyok"
     uci_is_ready_and_wait(stdin, stdout_reader)?;
@@ -208,13 +235,17 @@ pub fn uci_send_message_and_wait_for(
     stdout_reader: &mut BufReader<ChildStdout>,
     message: &str,
     wait_function: impl Fn(&str) -> bool,
-) -> Result<String, UciError> {
+) -> Result<Vec<String>, UciError> {
     // Write a message to stdin
     lock_std_and_write(stdin, message)?;
 
     // Read and print engine output until the wait_function is true
+    let mut prev_line;
     let mut line = String::new();
     loop {
+        // Remember the previous line
+        prev_line = line.clone();
+
         line.clear();
         stdout_reader.read_line(&mut line)?;
 
@@ -227,7 +258,7 @@ pub fn uci_send_message_and_wait_for(
         }
     }
 
-    Ok(line)
+    Ok(vec![line, prev_line])
 }
 
 /// # Errors

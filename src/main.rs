@@ -12,6 +12,7 @@ use crate::{
     bitboard_event::{bitboard_event_handler, BitBoardDisplayEvent},
     board::BoardBevy,
     display::{background_colour_event_handler, display_board, BackgroundColourEvent},
+    eval_bar::{create_eval_bar, update_eval_bar, CurrentEval},
     game_end::{game_end_event_handler, GameEndEvent},
     keyboard::{keyboard_event_handler, KeyboardState},
     last_move::{last_move_event_handler, LastMoveEvent},
@@ -25,6 +26,7 @@ use crate::{
 pub mod bitboard_event;
 pub mod board;
 pub mod display;
+pub mod eval_bar;
 pub mod game_end;
 pub mod keyboard;
 pub mod last_move;
@@ -34,6 +36,7 @@ pub mod piece_move;
 pub mod possible_moves;
 pub mod uci;
 pub mod uci_event;
+pub mod uci_info;
 
 fn main() {
     App::new()
@@ -62,8 +65,9 @@ fn main() {
         .add_event::<LastMoveEvent>()
         .init_resource::<BoardBevy>()
         .init_resource::<KeyboardState>()
+        .init_resource::<CurrentEval>()
         .insert_resource(communicate_to_uci())
-        .add_systems(Startup, (setup, display_board))
+        .add_systems(Startup, (setup, display_board, create_eval_bar))
         .add_systems(PreUpdate, process_uci_to_board_threads)
         .add_systems(
             Update,
@@ -77,6 +81,7 @@ fn main() {
                 game_end_event_handler,
                 uci_to_board_event_handler,
                 last_move_event_handler,
+                update_eval_bar,
             ),
         )
         .run();

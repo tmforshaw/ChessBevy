@@ -2,11 +2,16 @@ use bevy::prelude::*;
 
 use chess_core::piece_move::PieceMove;
 
-use crate::{board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent, last_move::LastMoveEvent};
+use crate::{
+    board::BoardBevy, display::BackgroundColourEvent, eval_bar::CurrentEval, game_end::GameEndEvent, last_move::LastMoveEvent,
+    uci_info::UciScore,
+};
 
 #[derive(Debug, Resource, Clone)]
 pub enum UciToBoardMessage {
     BestMove(PieceMove),
+    Score(i32),
+    Mate(i32),
 }
 
 #[derive(Event, Resource, Debug, Clone)]
@@ -34,6 +39,7 @@ pub fn uci_to_board_event_handler(
     mut texture_atlas_query: Query<&mut TextureAtlas>,
     mut game_end_ev: EventWriter<GameEndEvent>,
     mut last_move_ev: EventWriter<LastMoveEvent>,
+    mut current_eval: ResMut<CurrentEval>,
 ) {
     // Listen for messages from the Engine Listener thread, then apply moves
     for ev in ev_uci_to_board.read() {
@@ -49,6 +55,16 @@ pub fn uci_to_board_event_handler(
                     &mut last_move_ev,
                     piece_move,
                 );
+            }
+            UciToBoardMessage::Score(score) => {
+                println!("\nScore: {score}\n");
+
+                current_eval.0 = UciScore::Centipawn(score);
+            }
+            UciToBoardMessage::Mate(mate_in) => {
+                println!("\nMate in: {mate_in}\n");
+
+                current_eval.0 = UciScore::Mate(mate_in);
             }
         }
     }
