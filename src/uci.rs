@@ -97,7 +97,6 @@ pub fn communicate_to_uci() -> UciToBoardReceiver {
     UciToBoardReceiver(board_rx)
 }
 
-// TODO
 /// # Panics
 /// Panics if the best move reply can't be parsed
 /// # Errors

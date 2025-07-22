@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent};
+use crate::{board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent, last_move::LastMoveEvent};
 
 #[derive(Event)]
 pub struct MoveHistoryEvent {
@@ -15,6 +15,7 @@ pub fn move_history_event_handler(
     mut transform_query: Query<&mut Transform>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
     mut game_end_ev: EventWriter<GameEndEvent>,
+    mut last_move_ev: EventWriter<LastMoveEvent>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -41,6 +42,7 @@ pub fn move_history_event_handler(
                 &mut transform_query,
                 &mut texture_atlas_query,
                 &mut background_ev,
+                &mut last_move_ev,
                 history_move,
             );
         } else {
@@ -52,6 +54,7 @@ pub fn move_history_event_handler(
                 &mut texture_atlas_query,
                 &mut background_ev,
                 &mut game_end_ev,
+                &mut last_move_ev,
                 piece_move_original.with_show(false),
             );
         }

@@ -12,6 +12,7 @@ use chess_core::{
 use crate::{
     display::{get_texture_atlas, translate_piece_entity, BackgroundColourEvent},
     game_end::GameEndEvent,
+    last_move::LastMoveEvent,
     piece::PieceBundle,
 };
 
@@ -34,6 +35,7 @@ impl BoardBevy {
     /// Panics if en passant handling fails
     /// Panics if castling handling fails
     #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_arguments)]
     #[allow(clippy::type_complexity)]
     pub fn apply_move(
         &mut self,
@@ -42,6 +44,7 @@ impl BoardBevy {
         texture_atlas_query: &mut Query<&mut TextureAtlas>,
         background_ev: &mut EventWriter<BackgroundColourEvent>,
         game_end_ev: &mut EventWriter<GameEndEvent>,
+        last_move_ev: &mut EventWriter<LastMoveEvent>,
         piece_move: PieceMove,
     ) -> Option<()> {
         // Capture any pieces that should be captured
@@ -107,6 +110,9 @@ impl BoardBevy {
         // Move the entity internally, after any translations or texture changes are applied
         self.move_entity(piece_move);
 
+        // Send a LastMoveEvent for this move
+        last_move_ev.send(LastMoveEvent);
+
         // Check if this move has caused the game to end
         if let Some(winning_player) = self.board.has_game_ended() {
             // Game ended via checkmate or stalemate
@@ -133,6 +139,7 @@ impl BoardBevy {
         transform_query: &mut Query<&mut Transform>,
         texture_atlas_query: &mut Query<&mut TextureAtlas>,
         background_ev: &mut EventWriter<BackgroundColourEvent>,
+        last_move_ev: &mut EventWriter<LastMoveEvent>,
         history_move: HistoryMove,
     ) {
         self.board.undo_move(history_move);
@@ -228,6 +235,9 @@ impl BoardBevy {
 
         // Change background colour to show current player
         background_ev.send(BackgroundColourEvent::new_from_player(self.board.get_player()));
+
+        // Send a LastMoveEvent for this move
+        last_move_ev.send(LastMoveEvent);
     }
 
     pub fn move_piece_and_entity(&mut self, piece_move: PieceMove) {

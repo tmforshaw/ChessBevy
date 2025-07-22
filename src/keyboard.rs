@@ -2,7 +2,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 use chess_core::piece::Piece;
 
-use crate::{bitboard::BitBoardDisplayEvent, move_history::MoveHistoryEvent};
+use crate::{bitboard_event::BitBoardDisplayEvent, move_history::MoveHistoryEvent};
 
 #[derive(Resource, Clone, Default)]
 pub struct KeyboardState {
@@ -97,30 +97,15 @@ pub fn keyboard_event_handler(
                 ));
             }
             if ev.key_code == KeyCode::KeyQ {
-                ev_display_event.send(BitBoardDisplayEvent::new(
-                    None,
-                    keyboard_state.shift_pressed,
-                    false,
-                    1,
-                ));
+                ev_display_event.send(BitBoardDisplayEvent::new(None, keyboard_state.shift_pressed, false, 1));
             }
 
             if ev.key_code == KeyCode::KeyE {
-                ev_display_event.send(BitBoardDisplayEvent::new(
-                    None,
-                    keyboard_state.shift_pressed,
-                    false,
-                    2,
-                ));
+                ev_display_event.send(BitBoardDisplayEvent::new(None, keyboard_state.shift_pressed, false, 2));
             }
 
             if ev.key_code == KeyCode::KeyR {
-                ev_display_event.send(BitBoardDisplayEvent::new(
-                    None,
-                    keyboard_state.shift_pressed,
-                    false,
-                    3,
-                ));
+                ev_display_event.send(BitBoardDisplayEvent::new(None, keyboard_state.shift_pressed, false, 3));
             }
 
             if ev.key_code == KeyCode::ArrowLeft {

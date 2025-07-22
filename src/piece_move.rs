@@ -6,6 +6,7 @@ use crate::{
     board::BoardBevy,
     display::{translate_piece_entity, BackgroundColourEvent},
     game_end::GameEndEvent,
+    last_move::LastMoveEvent,
     uci::{transmit_to_uci, UciMessage, ENGINE_PLAYER},
 };
 
@@ -18,6 +19,7 @@ pub struct PieceMoveEvent {
 /// # Panics
 /// Panics if the move history can't be converted to a string to send to via uci to the engine
 /// Panics if message cannot be sent via uci
+#[allow(clippy::too_many_arguments)]
 pub fn piece_move_event_handler(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
@@ -26,6 +28,7 @@ pub fn piece_move_event_handler(
     mut board: ResMut<BoardBevy>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
     mut game_end_ev: EventWriter<GameEndEvent>,
+    mut last_move_ev: EventWriter<LastMoveEvent>,
 ) {
     for ev in ev_piece_move.read() {
         let piece_move = ev.piece_move;
@@ -46,6 +49,7 @@ pub fn piece_move_event_handler(
                     &mut texture_atlas_query,
                     &mut background_ev,
                     &mut game_end_ev,
+                    &mut last_move_ev,
                     piece_move,
                 )
                 .is_some()

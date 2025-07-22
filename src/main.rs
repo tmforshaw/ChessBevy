@@ -9,11 +9,12 @@ use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    bitboard::{bitboard_event_handler, BitBoardDisplayEvent},
+    bitboard_event::{bitboard_event_handler, BitBoardDisplayEvent},
     board::BoardBevy,
     display::{background_colour_event_handler, display_board, BackgroundColourEvent},
     game_end::{game_end_event_handler, GameEndEvent},
     keyboard::{keyboard_event_handler, KeyboardState},
+    last_move::{last_move_event_handler, LastMoveEvent},
     move_history::{move_history_event_handler, MoveHistoryEvent},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
     possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
@@ -21,11 +22,12 @@ use crate::{
     uci_event::{process_uci_to_board_threads, uci_to_board_event_handler, UciEvent},
 };
 
-pub mod bitboard;
+pub mod bitboard_event;
 pub mod board;
 pub mod display;
 pub mod game_end;
 pub mod keyboard;
+pub mod last_move;
 pub mod move_history;
 pub mod piece;
 pub mod piece_move;
@@ -57,6 +59,7 @@ fn main() {
         .add_event::<MoveHistoryEvent>()
         .add_event::<GameEndEvent>()
         .add_event::<UciEvent>()
+        .add_event::<LastMoveEvent>()
         .init_resource::<BoardBevy>()
         .init_resource::<KeyboardState>()
         .insert_resource(communicate_to_uci())
@@ -73,6 +76,7 @@ fn main() {
                 move_history_event_handler,
                 game_end_event_handler,
                 uci_to_board_event_handler,
+                last_move_event_handler,
             ),
         )
         .run();
