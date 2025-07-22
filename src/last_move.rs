@@ -49,7 +49,5 @@ pub fn last_move_event_handler(
                 LastMoveMarker,
             ));
         }
-
-        println!("Last Move: {last_move:?}");
     }
 }
