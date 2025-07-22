@@ -61,6 +61,7 @@ pub fn piece_move_event_handler(
                         .move_history
                         .to_piece_move_string()
                         .expect("Could not convert move history into piece move string"),
+                    player_to_move: board.board.get_player(),
                 })
                 .unwrap_or_else(|e| panic!("{e}"));
             }

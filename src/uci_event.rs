@@ -3,7 +3,12 @@ use bevy::prelude::*;
 use chess_core::piece_move::PieceMove;
 
 use crate::{
-    board::BoardBevy, display::BackgroundColourEvent, eval_bar::CurrentEval, game_end::GameEndEvent, last_move::LastMoveEvent,
+    board::BoardBevy,
+    display::BackgroundColourEvent,
+    eval_bar::CurrentEval,
+    game_end::GameEndEvent,
+    last_move::LastMoveEvent,
+    uci::{transmit_to_uci, UciMessage},
     uci_info::UciScore,
 };
 
@@ -57,14 +62,10 @@ pub fn uci_to_board_event_handler(
                 );
             }
             UciToBoardMessage::Score(score) => {
-                println!("\nScore: {score}\n");
-
-                current_eval.0 = UciScore::Centipawn(score);
+                current_eval.score = UciScore::Centipawn(score);
             }
             UciToBoardMessage::Mate(mate_in) => {
-                println!("\nMate in: {mate_in}\n");
-
-                current_eval.0 = UciScore::Mate(mate_in);
+                current_eval.score = UciScore::Mate(mate_in);
             }
         }
     }

@@ -14,7 +14,7 @@ use chess_core::{
 
 use crate::{
     uci_event::{UciToBoardMessage, UciToBoardReceiver},
-    uci_info::{uci_parse_info, UciScore},
+    uci_info::send_uci_info,
 };
 
 const ENGINE_COMMAND: &str = "stockfish";
@@ -56,7 +56,8 @@ pub enum UciError {
 
 #[derive(Debug, Clone)]
 pub enum UciMessage {
-    NewMove { move_history: String },
+    NewMove { move_history: String, player_to_move: Player },
+    UpdateEval { move_history: String, player_to_move: Player },
     CloseChannel,
 }
 
@@ -118,7 +119,10 @@ pub fn match_uci_message(
     engine_process: &mut Child,
 ) -> Result<(), UciError> {
     match message {
-        UciMessage::NewMove { move_history } => {
+        UciMessage::NewMove {
+            move_history,
+            player_to_move,
+        } => {
             lock_std_and_write(
                 shared_stdin,
                 // format!("position startpos moves {move_history}"),
@@ -145,18 +149,23 @@ pub fn match_uci_message(
             // Send this move to the board
             board_tx.send(UciToBoardMessage::BestMove(piece_move))?;
 
-            // Parse the final info line from the UCI reply
-            let uci_info = uci_parse_info(lines[1].trim())?;
+            send_uci_info(lines[1].as_str(), board_tx, player_to_move)?;
+        }
+        UciMessage::UpdateEval {
+            move_history,
+            player_to_move,
+        } => {
+            lock_std_and_write(shared_stdin, format!("position fen {DEFAULT_FEN} moves {move_history}"))?;
 
-            // The score is in centipawns
-            match uci_info.score {
-                UciScore::Centipawn(score) => {
-                    board_tx.send(UciToBoardMessage::Score(score))?;
-                }
-                UciScore::Mate(mate_in) => {
-                    board_tx.send(UciToBoardMessage::Mate(mate_in))?;
-                }
-            }
+            // Read and print engine output until it reports "readyok"
+            uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
+
+            // Tell the engine to find the best move (but we only care about the information given before the best move)
+            let lines = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 20", |line| {
+                line.split_whitespace().next() == Some("bestmove")
+            })?;
+
+            send_uci_info(lines[1].as_str(), board_tx, player_to_move)?;
         }
         UciMessage::CloseChannel => {
             // Close the channel
