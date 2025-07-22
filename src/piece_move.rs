@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use chess_core::{board::Player, piece_move::PieceMove};
+use chess_core::piece_move::PieceMove;
 
 use crate::{
     board::BoardBevy,
@@ -33,13 +33,9 @@ pub fn piece_move_event_handler(
         // Snap the moved entity to the grid (Don't move if there is a non-opponent piece there, or if you moved a piece on another player's turn, or if the move is impossible for that piece type)
 
         // TODO ENGINE_PLAYER can't be white
-        if !board.board.positions.get_piece(piece_move.to).is_player(board.board.player)
-            && board.board.positions.get_piece(piece_move.from).is_player(board.board.player)
-            && board
-                .board
-                .positions
-                .get_possible_moves(piece_move.from)
-                .contains(&piece_move)
+        if !board.board.get_piece(piece_move.to).is_player(board.board.player)
+            && board.board.get_piece(piece_move.from).is_player(board.board.player)
+            && board.board.get_possible_moves(piece_move.from).contains(&piece_move)
             && board.board.get_player() != ENGINE_PLAYER
         {
             // Apply the move to the board

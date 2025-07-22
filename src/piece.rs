@@ -38,8 +38,7 @@ impl PieceBundle {
                     layout: texture_atlas_layout,
                     index: key.to_bitboard_index(),
                 },
-                transform: Transform::from_scale(Vec3::splat(PIECE_SIZE / PIECE_SIZE_IMG))
-                    .with_translation(Vec3::new(x, y, 1.)),
+                transform: Transform::from_scale(Vec3::splat(PIECE_SIZE / PIECE_SIZE_IMG)).with_translation(Vec3::new(x, y, 1.)),
                 ..default()
             },
             on_drag_start_listener: On::<Pointer<DragStart>>::run(on_piece_drag_start),
@@ -74,10 +73,7 @@ fn on_piece_drag_start(
 /// Move the piece when it is dragged by a mouse
 /// # Panics
 /// Panics if the dragged entity's transform cannot be found
-fn on_piece_drag(
-    mut drag_er: EventReader<Pointer<Drag>>,
-    mut transform_query: Query<&mut Transform>,
-) {
+fn on_piece_drag(mut drag_er: EventReader<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query
             .get_mut(drag_data.target)
@@ -103,8 +99,7 @@ fn on_piece_drag_end(
             .expect("Dragged entity's transform could not be found");
 
         // Find where the piece was moved from in board coordinates
-        let original_pos = transform.translation.xy()
-            - Vec2::new(drag_data.distance.x, -drag_data.distance.y)
+        let original_pos = transform.translation.xy() - Vec2::new(drag_data.distance.x, -drag_data.distance.y)
             + Vec2::new(PIECE_SIZE, PIECE_SIZE) / 2.;
         let (ori_file, ori_rank) = pixel_to_board_coords(original_pos.x, original_pos.y);
 

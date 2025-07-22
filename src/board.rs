@@ -23,7 +23,7 @@ pub struct BoardBevy {
 
 impl std::fmt::Display for BoardBevy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Current Player: {:?}\n{}\n", self.board.player, self.board.positions)
+        writeln!(f, "Current Player: {:?}\n{}\n", self.board.player, self.board)
     }
 }
 
@@ -45,7 +45,7 @@ impl BoardBevy {
         piece_move: PieceMove,
     ) {
         // Capture any pieces that should be captured
-        if self.board.positions.get_piece(piece_move.to) != Piece::None {
+        if self.board.get_piece(piece_move.to) != Piece::None {
             if let Some(captured_entity) = self.get_entity(piece_move.to) {
                 commands.entity(captured_entity).despawn();
             }
@@ -108,7 +108,7 @@ impl BoardBevy {
         self.move_entity(piece_move);
 
         // Check if this move has caused the game to end
-        if let Some(winning_player) = self.board.positions.has_game_ended() {
+        if let Some(winning_player) = self.board.has_game_ended() {
             // Game ended via checkmate or stalemate
             game_end_ev.send(GameEndEvent::new(winning_player));
         } else {
@@ -228,7 +228,7 @@ impl BoardBevy {
     }
 
     pub fn move_piece_and_entity(&mut self, piece_move: PieceMove) {
-        self.board.positions.move_piece(piece_move);
+        self.board.move_piece(piece_move);
 
         let moved_entity = self.get_entity(piece_move.from);
         self.set_entity(piece_move.from, None);

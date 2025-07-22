@@ -20,12 +20,7 @@ pub struct BitBoardDisplayEvent {
 
 impl BitBoardDisplayEvent {
     #[must_use]
-    pub const fn new(
-        board_type: Option<Piece>,
-        clear: bool,
-        show: bool,
-        board_unshow_type: usize,
-    ) -> Self {
+    pub const fn new(board_type: Option<Piece>, clear: bool, show: bool, board_unshow_type: usize) -> Self {
         Self {
             board_type,
             clear,
@@ -53,7 +48,7 @@ pub fn bitboard_event_handler(
         }
 
         if let Some(board_type) = ev.board_type {
-            let bitboard = board.board.positions[board_type];
+            let bitboard = board.board[board_type];
 
             for pos in bitboard.to_tile_positions() {
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
@@ -64,8 +59,7 @@ pub fn bitboard_event_handler(
                             color: Color::rgba(1., 0., 0., 0.75),
                             ..default()
                         },
-                        transform: Transform::from_xyz(x, y, 2.)
-                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        transform: Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                         ..default()
                     },
                     BitBoardMarker,
@@ -77,12 +71,11 @@ pub fn bitboard_event_handler(
             match ev.board_unshow_type {
                 1 => {
                     // Show en passant tile
-                    if board.board.positions.en_passant_tile == 0 {
+                    if board.board.en_passant_tile == 0 {
                         return;
                     }
 
-                    let pos =
-                        TilePos::from_index(board.board.positions.en_passant_tile.trailing_zeros());
+                    let pos = TilePos::from_index(board.board.en_passant_tile.trailing_zeros());
 
                     xy.push(board_to_pixel_coords(pos.file, pos.rank));
                 }
@@ -97,7 +90,6 @@ pub fn bitboard_event_handler(
 
                     let mut attacked = board
                         .board
-                        .positions
                         .get_attacked_tiles(player)
                         .to_tile_positions()
                         .iter()
@@ -119,8 +111,7 @@ pub fn bitboard_event_handler(
                             color: Color::rgba(1., 0., 0., 0.75),
                             ..default()
                         },
-                        transform: Transform::from_xyz(x, y, 2.)
-                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        transform: Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                         ..default()
                     },
                     BitBoardMarker,

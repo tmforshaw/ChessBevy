@@ -16,10 +16,7 @@ impl GameEndEvent {
     }
 }
 
-pub fn game_end_event_handler(
-    mut ev_game_end: EventReader<GameEndEvent>,
-    mut background_ev: EventWriter<BackgroundColourEvent>,
-) {
+pub fn game_end_event_handler(mut ev_game_end: EventReader<GameEndEvent>, mut background_ev: EventWriter<BackgroundColourEvent>) {
     for ev in ev_game_end.read() {
         if let Some(winning_player) = ev.winning_player {
             // Checkmate

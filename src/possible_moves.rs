@@ -27,7 +27,7 @@ pub fn possible_move_event_handler(
 ) {
     for ev in ev_display.read() {
         if ev.show {
-            for pos in board.board.positions.get_possible_moves(ev.from) {
+            for pos in board.board.get_possible_moves(ev.from) {
                 let (x, y) = board_to_pixel_coords(pos.to.file, pos.to.rank);
 
                 commands.spawn((
@@ -36,8 +36,7 @@ pub fn possible_move_event_handler(
                             color: POSSIBLE_MOVE_COLOUR,
                             ..default()
                         },
-                        transform: Transform::from_xyz(x, y, 2.)
-                            .with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                        transform: Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                         ..default()
                     },
                     PossibleMoveMarker,

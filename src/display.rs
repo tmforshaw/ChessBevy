@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 
 use chess_core::{
-    board::{Player, TilePos},
+    board::{Player, TilePos, BOARD_SIZE},
     piece::{Piece, COLOUR_AMT, PIECE_AMT},
 };
 
 use crate::{board::BoardBevy, piece::PieceBundle};
 
-pub const BOARD_SIZE: u32 = 8;
 pub const PIECE_SIZE: f32 = 200.;
 pub const PIECE_SIZE_IMG: f32 = 150.;
 pub const BOARD_SPACING: f32 = 0.;
@@ -25,11 +24,9 @@ pub fn board_to_pixel_coords(file: u32, rank: u32) -> (f32, f32) {
 #[must_use]
 pub fn pixel_to_board_coords(x: f32, y: f32) -> (u32, u32) {
     (
-        ((((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
-            .unsigned_abs() as u32)
+        ((((x / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize).unsigned_abs() as u32)
             .clamp(0, BOARD_SIZE - 1),
-        ((((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize)
-            .unsigned_abs() as u32)
+        ((((y / (PIECE_SIZE + BOARD_SPACING)) - 0.5 + BOARD_SIZE as f32 / 2.) as isize).unsigned_abs() as u32)
             .clamp(0, BOARD_SIZE - 1),
     )
 }
@@ -50,11 +47,7 @@ pub fn display_board(
             // Starting with a light square on A1 (Bottom Left for White)
             commands.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: if (file + rank) % 2 == 0 {
-                        Color::WHITE
-                    } else {
-                        Color::PURPLE
-                    },
+                    color: if (file + rank) % 2 == 0 { Color::WHITE } else { Color::PURPLE },
                     custom_size: Some(Vec2::new(PIECE_SIZE, PIECE_SIZE)),
                     ..default()
                 },
@@ -64,16 +57,15 @@ pub fn display_board(
         }
     }
 
-    let (texture, texture_atlas_layout) =
-        get_texture_atlas(&asset_server, &mut texture_atlas_layouts);
+    let (texture, texture_atlas_layout) = get_texture_atlas(&asset_server, &mut texture_atlas_layouts);
 
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
         for file in 0..BOARD_SIZE {
-            if board.board.positions.get_piece(TilePos::new(file, rank)) != Piece::None {
+            if board.board.get_piece(TilePos::new(file, rank)) != Piece::None {
                 let entity = commands.spawn(PieceBundle::new(
                     (file, rank),
-                    board.board.positions.get_piece(TilePos::new(file, rank)),
+                    board.board.get_piece(TilePos::new(file, rank)),
                     texture.clone(),
                     texture_atlas_layout.clone(),
                 ));
@@ -87,10 +79,7 @@ pub fn display_board(
 pub fn get_texture_atlas(
     asset_server: &AssetServer,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
-) -> (
-    bevy::prelude::Handle<Image>,
-    bevy::prelude::Handle<TextureAtlasLayout>,
-) {
+) -> (bevy::prelude::Handle<Image>, bevy::prelude::Handle<TextureAtlasLayout>) {
     // Texture atlas for all the pieces
     (
         asset_server.load(PIECE_TEXTURE_FILE),
@@ -106,11 +95,7 @@ pub fn get_texture_atlas(
 
 /// # Panics
 /// Panics if the transform query cannot find the entity at the specified position
-pub fn translate_piece_entity(
-    transform_query: &mut Query<&mut Transform>,
-    piece_entity: Entity,
-    pos: TilePos,
-) {
+pub fn translate_piece_entity(transform_query: &mut Query<&mut Transform>, piece_entity: Entity, pos: TilePos) {
     let mut transform = transform_query
         .get_mut(piece_entity)
         .unwrap_or_else(|e| panic!("Could get piece entity at pos {pos}\n\t{e:?}"));
