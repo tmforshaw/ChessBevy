@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::ui::Outline;
 
 use crate::uci_info::UciScore;
 
@@ -20,7 +19,6 @@ pub fn create_eval_bar(mut commands: Commands) {
             style: Style {
                 width: Val::Percent(100.),
                 height: BAR_HEIGHT,
-                flex_direction: FlexDirection::ColumnReverse,
                 ..default()
             },
             background_color: BackgroundColor(Color::BLACK),
@@ -52,11 +50,6 @@ pub fn create_eval_bar(mut commands: Commands) {
                     ..default()
                 })
                 .insert(EvalBarBlack);
-        })
-        .insert(Outline {
-            color: Color::GRAY,
-            width: Val::Px(4.0),
-            offset: Val::Px(0.0),
         });
 }
 
