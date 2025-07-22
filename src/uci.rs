@@ -7,7 +7,10 @@ use std::{
     sync::{mpsc, Arc, Mutex, OnceLock},
 };
 
-use chess_core::{board::Player, piece_move::PieceMove};
+use chess_core::{
+    board::{Player, DEFAULT_FEN},
+    piece_move::PieceMove,
+};
 
 use crate::uci_event::{UciToBoardMessage, UciToBoardReceiver};
 
@@ -113,8 +116,8 @@ pub fn match_uci_message(
         UciMessage::NewMove { move_history } => {
             lock_std_and_write(
                 shared_stdin,
-                format!("position startpos moves {move_history}"),
-                // format!("position fen {DEFAULT_FEN} moves {move_history}"),
+                // format!("position startpos moves {move_history}"),
+                format!("position fen {DEFAULT_FEN} moves {move_history}"),
             )?;
 
             // Read and print engine output until it reports "readyok"

@@ -43,7 +43,7 @@ impl BoardBevy {
         background_ev: &mut EventWriter<BackgroundColourEvent>,
         game_end_ev: &mut EventWriter<GameEndEvent>,
         piece_move: PieceMove,
-    ) {
+    ) -> Option<()> {
         // Capture any pieces that should be captured
         if self.board.get_piece(piece_move.to) != Piece::None {
             if let Some(captured_entity) = self.get_entity(piece_move.to) {
@@ -111,10 +111,13 @@ impl BoardBevy {
         if let Some(winning_player) = self.board.has_game_ended() {
             // Game ended via checkmate or stalemate
             game_end_ev.send(GameEndEvent::new(winning_player));
+            None
         } else {
             // self.board.next_player(); // Already performed next player in Board apply_move
             // Change background colour to show current player
             background_ev.send(BackgroundColourEvent::new_from_player(self.board.get_player()));
+
+            Some(())
         }
     }
 

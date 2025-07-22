@@ -39,24 +39,27 @@ pub fn piece_move_event_handler(
             && board.board.get_player() != ENGINE_PLAYER
         {
             // Apply the move to the board
-            board.apply_move(
-                &mut commands,
-                &mut transform_query,
-                &mut texture_atlas_query,
-                &mut background_ev,
-                &mut game_end_ev,
-                piece_move,
-            );
-
-            // Send the moves to the chess engine
-            transmit_to_uci(UciMessage::NewMove {
-                move_history: board
-                    .board
-                    .move_history
-                    .to_piece_move_string()
-                    .expect("Could not convert move history into piece move string"),
-            })
-            .unwrap_or_else(|e| panic!("{e}"));
+            if board
+                .apply_move(
+                    &mut commands,
+                    &mut transform_query,
+                    &mut texture_atlas_query,
+                    &mut background_ev,
+                    &mut game_end_ev,
+                    piece_move,
+                )
+                .is_some()
+            {
+                // Send the moves to the chess engine, if the game hasn't ended
+                transmit_to_uci(UciMessage::NewMove {
+                    move_history: board
+                        .board
+                        .move_history
+                        .to_piece_move_string()
+                        .expect("Could not convert move history into piece move string"),
+                })
+                .unwrap_or_else(|e| panic!("{e}"));
+            }
         } else {
             // Reset position
             translate_piece_entity(&mut transform_query, ev.entity, piece_move.from);
