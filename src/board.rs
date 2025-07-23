@@ -14,6 +14,7 @@ use crate::{
     game_end::GameEndEvent,
     last_move::LastMoveEvent,
     piece::PieceBundle,
+    uci::{transmit_to_uci, UciMessage, ENGINE_PLAYER},
 };
 
 #[derive(Resource, Clone, Default)]
@@ -47,6 +48,36 @@ impl BoardBevy {
         last_move_ev: &mut EventWriter<LastMoveEvent>,
         piece_move: PieceMove,
     ) -> Option<()> {
+        // // Update eval for this move
+        // if self.board.get_player() != ENGINE_PLAYER {
+        //     let piece_move_string = [
+        //         String::from(" "),
+        //         piece_move
+        //             .to_algebraic()
+        //             .expect("Could not convert piece move to algebraic for update eval"),
+        //     ]
+        //     .join("");
+
+        //     // Create a temporary move history to check the eval for this move
+        //     let move_history_string = [
+        //         self.board
+        //             .move_history
+        //             .to_piece_move_string()
+        //             .expect("Could not get move history string to update eval"),
+        //         piece_move_string,
+        //     ]
+        //     .join("");
+
+        //     println!("\t\t{move_history_string:?}");
+
+        //     // Ask the engine to update the eval bar
+        //     transmit_to_uci(UciMessage::UpdateEval {
+        //         move_history: move_history_string,
+        //         player_to_move: self.board.get_next_player(),
+        //     })
+        //     .unwrap_or_else(|e| panic!("{e}"));
+        // }
+
         // Capture any pieces that should be captured
         if self.board.get_piece(piece_move.to) != Piece::None {
             if let Some(captured_entity) = self.get_entity(piece_move.to) {

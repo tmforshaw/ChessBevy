@@ -161,7 +161,7 @@ pub fn match_uci_message(
             uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
 
             // Tell the engine to find the best move (but we only care about the information given before the best move)
-            let lines = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 20", |line| {
+            let lines = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 10", |line| {
                 line.split_whitespace().next() == Some("bestmove")
             })?;
 
@@ -191,10 +191,12 @@ pub fn greet_uci(stdin: &Arc<Mutex<ChildStdin>>, stdout_reader: &mut BufReader<C
     // Read and print engine output until it reports "readyok"
     uci_is_ready_and_wait(stdin, stdout_reader)?;
 
-    // // Set options for the engine
-    // lock_std_and_write(stdin, "setoption name MultiPV value 3")?;
+    // Set options for the engine
+    lock_std_and_write(stdin, "setoption name Hash value 512")?;
+    uci_is_ready_and_wait(stdin, stdout_reader)?;
 
-    // // Read and print engine output until it reports "readyok"
+    // // Set options for the engine
+    // lock_std_and_write(stdin, "setoption name Threads value 8")?;
     // uci_is_ready_and_wait(stdin, stdout_reader)?;
 
     // Read and print engine output until it reports "readyok"
