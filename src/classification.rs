@@ -1,3 +1,5 @@
+use bevy::prelude::*;
+
 use crate::uci_info::UciEval;
 
 #[derive(Debug, Copy, Clone)]
@@ -10,6 +12,9 @@ pub enum MoveClassification {
     Miss,
     Blunder,
 }
+
+#[derive(Component)]
+pub struct MoveClassificationMarker;
 
 #[must_use]
 pub const fn classify_move(evaluation_after: UciEval, evaluation_best: UciEval) -> MoveClassification {

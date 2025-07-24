@@ -10,7 +10,7 @@ use chess_core::{
 };
 
 use crate::{
-    display::{get_texture_atlas, translate_piece_entity, BackgroundColourEvent},
+    display::{get_piece_texture_atlas, translate_piece_entity, BackgroundColourEvent},
     game_end::GameEndEvent,
     last_move::LastMoveEvent,
     piece::PieceBundle,
@@ -199,7 +199,7 @@ impl BoardBevy {
                         piece_move.to
                     };
 
-                    let (texture, texture_atlas_layout) = get_texture_atlas(asset_server, texture_atlas_layouts);
+                    let (texture, texture_atlas_layout) = get_piece_texture_atlas(asset_server, texture_atlas_layouts);
 
                     // Create new entity for the captured piece
                     let captured_entity = commands.spawn(PieceBundle::new(

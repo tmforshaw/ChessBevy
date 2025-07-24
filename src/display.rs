@@ -13,6 +13,10 @@ pub const BOARD_SPACING: f32 = 0.;
 
 pub const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
+pub const CLASSIFICATION_SIZE_IMG: f32 = 150.;
+pub const CLASSIFICATION_AMT: usize = 5;
+pub const CLASSIFICATION_TEXTURE_FILE: &str = "MoveClassification.png";
+
 #[must_use]
 pub fn board_to_pixel_coords(file: u32, rank: u32) -> (f32, f32) {
     (
@@ -57,7 +61,7 @@ pub fn display_board(
         }
     }
 
-    let (texture, texture_atlas_layout) = get_texture_atlas(&asset_server, &mut texture_atlas_layouts);
+    let (texture, texture_atlas_layout) = get_piece_texture_atlas(&asset_server, &mut texture_atlas_layouts);
 
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
@@ -76,7 +80,7 @@ pub fn display_board(
     }
 }
 
-pub fn get_texture_atlas(
+pub fn get_piece_texture_atlas(
     asset_server: &AssetServer,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) -> (bevy::prelude::Handle<Image>, bevy::prelude::Handle<TextureAtlasLayout>) {
@@ -86,6 +90,23 @@ pub fn get_texture_atlas(
         texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
             Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
             PIECE_AMT,
+            COLOUR_AMT,
+            None,
+            None,
+        )),
+    )
+}
+
+pub fn get_classification_texture_atlas(
+    asset_server: &AssetServer,
+    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
+) -> (bevy::prelude::Handle<Image>, bevy::prelude::Handle<TextureAtlasLayout>) {
+    // Texture atlas for all the pieces
+    (
+        asset_server.load(CLASSIFICATION_TEXTURE_FILE),
+        texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+            Vec2::new(CLASSIFICATION_SIZE_IMG, CLASSIFICATION_SIZE_IMG),
+            CLASSIFICATION_AMT,
             COLOUR_AMT,
             None,
             None,

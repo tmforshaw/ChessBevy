@@ -3,8 +3,13 @@ use bevy::prelude::*;
 use chess_core::piece_move::PieceMove;
 
 use crate::{
-    board::BoardBevy, classification::MoveClassification, display::BackgroundColourEvent, eval_bar::CurrentEval,
-    game_end::GameEndEvent, last_move::LastMoveEvent, uci_info::UciEval,
+    board::BoardBevy,
+    classification::{MoveClassification, MoveClassificationMarker},
+    display::{board_to_pixel_coords, BackgroundColourEvent, PIECE_SIZE},
+    eval_bar::CurrentEval,
+    game_end::GameEndEvent,
+    last_move::LastMoveEvent,
+    uci_info::UciEval,
 };
 
 #[derive(Debug, Resource, Clone)]
@@ -31,6 +36,7 @@ impl UciEvent {
 pub struct UciToBoardReceiver(pub crossbeam_channel::Receiver<UciToBoardMessage>);
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::needless_pass_by_value)]
 pub fn uci_to_board_event_handler(
     mut ev_uci_to_board: EventReader<UciEvent>,
     mut commands: Commands,
@@ -41,6 +47,7 @@ pub fn uci_to_board_event_handler(
     mut game_end_ev: EventWriter<GameEndEvent>,
     mut last_move_ev: EventWriter<LastMoveEvent>,
     mut current_eval: ResMut<CurrentEval>,
+    move_classification_entities: Query<Entity, With<MoveClassificationMarker>>,
 ) {
     // Listen for messages from the Engine Listener thread, then apply moves
     for ev in ev_uci_to_board.read() {
@@ -65,6 +72,31 @@ pub fn uci_to_board_event_handler(
             }
             UciToBoardMessage::MoveClassification(move_class) => {
                 println!("Move Type: {move_class:?}\t\t{:?}\n", board.board.get_next_player());
+
+                // Clear any move classification entities
+                for entity in move_classification_entities.iter() {
+                    commands.entity(entity).despawn();
+                }
+
+                let Some(last_move) = board.board.move_history.get() else {
+                    continue;
+                };
+                let (last_move, _, _, _) = last_move.into();
+
+                let (x, y) = board_to_pixel_coords(last_move.to.file, last_move.to.rank);
+
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgba(1.0, 0.3, 1.0, 1.0),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(x + PIECE_SIZE / 2.25, y + PIECE_SIZE / 2.25, 1.5)
+                            .with_scale(Vec3::splat(PIECE_SIZE * 0.4)),
+                        ..default()
+                    },
+                    MoveClassificationMarker,
+                ));
             }
         }
     }
