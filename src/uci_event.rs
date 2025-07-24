@@ -3,20 +3,16 @@ use bevy::prelude::*;
 use chess_core::piece_move::PieceMove;
 
 use crate::{
-    board::BoardBevy,
-    display::BackgroundColourEvent,
-    eval_bar::CurrentEval,
-    game_end::GameEndEvent,
-    last_move::LastMoveEvent,
-    uci::{transmit_to_uci, UciMessage},
-    uci_info::UciScore,
+    board::BoardBevy, classification::MoveClassification, display::BackgroundColourEvent, eval_bar::CurrentEval,
+    game_end::GameEndEvent, last_move::LastMoveEvent, uci_info::UciEval,
 };
 
 #[derive(Debug, Resource, Clone)]
 pub enum UciToBoardMessage {
     BestMove(PieceMove),
-    Score(i32),
+    Centipawn(i32),
     Mate(i32),
+    MoveClassification(MoveClassification),
 }
 
 #[derive(Event, Resource, Debug, Clone)]
@@ -61,11 +57,14 @@ pub fn uci_to_board_event_handler(
                     piece_move,
                 );
             }
-            UciToBoardMessage::Score(score) => {
-                current_eval.score = UciScore::Centipawn(score);
+            UciToBoardMessage::Centipawn(eval) => {
+                current_eval.eval = UciEval::Centipawn(eval);
             }
             UciToBoardMessage::Mate(mate_in) => {
-                current_eval.score = UciScore::Mate(mate_in);
+                current_eval.eval = UciEval::Mate(mate_in);
+            }
+            UciToBoardMessage::MoveClassification(move_class) => {
+                println!("Move Type: {move_class:?}\t\t{:?}\n", board.board.get_next_player());
             }
         }
     }

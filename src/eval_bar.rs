@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use crate::{
     board::BoardBevy,
     uci::{transmit_to_uci, UciMessage},
-    uci_info::UciScore,
+    uci_info::UciEval,
 };
 
-#[derive(Resource, Default, PartialEq, Eq)]
+#[derive(Resource, Default, PartialEq, Eq, Clone)]
 pub struct CurrentEval {
-    pub score: UciScore,
+    pub eval: UciEval,
 }
 
 #[derive(Component)]
@@ -79,13 +79,12 @@ pub fn create_eval_bar(mut commands: Commands, board: Res<BoardBevy>) {
 pub fn update_eval_bar(eval: Res<CurrentEval>, mut query: Query<(&mut Style, Option<&EvalBarWhite>, Option<&EvalBarBlack>)>) {
     // Only update the eval bar when the evaluation changes
     if eval.is_changed() {
-        println!("\nScore: {:?}\n", eval.score);
-        let fraction = match eval.score {
-            UciScore::Centipawn(cp) => {
-                let capped = cp.clamp(-1000, 1000); // cap extreme scores
+        let fraction = match eval.eval {
+            UciEval::Centipawn(cp) => {
+                let capped = cp.clamp(-1000, 1000); // cap extreme evals
                 0.5 + (capped as f32 / 2000.0) // between 0.0 and 1.0
             }
-            UciScore::Mate(mate) => {
+            UciEval::Mate(mate) => {
                 if mate > 0 {
                     1.0 // White mates
                 } else {

@@ -25,6 +25,7 @@ use crate::{
 
 pub mod bitboard_event;
 pub mod board;
+pub mod classification;
 pub mod display;
 pub mod eval_bar;
 pub mod game_end;

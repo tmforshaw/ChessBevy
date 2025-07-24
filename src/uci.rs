@@ -13,14 +13,17 @@ use chess_core::{
 };
 
 use crate::{
+    classification::classify_move,
     uci_event::{UciToBoardMessage, UciToBoardReceiver},
-    uci_info::send_uci_info,
+    uci_info::{send_uci_info, uci_parse_info, UciEval},
 };
 
 const ENGINE_COMMAND: &str = "stockfish";
 // const ENGINE_COMMAND: &str = "target/debug/chess_engine";
 
 pub const ENGINE_PLAYER: Player = Player::Black;
+
+const SHOW_UCI_OUTPUT: bool = false;
 
 static UCI_TX: OnceLock<Mutex<Option<mpsc::Sender<UciMessage>>>> = OnceLock::new();
 
@@ -58,6 +61,7 @@ pub enum UciError {
 pub enum UciMessage {
     NewMove { move_history: String, player_to_move: Player },
     UpdateEval { move_history: String, player_to_move: Player },
+    ClassifyMove { move_history: String, player_to_move: Player },
     CloseChannel,
 }
 
@@ -167,6 +171,60 @@ pub fn match_uci_message(
 
             send_uci_info(lines[1].as_str(), board_tx, player_to_move)?;
         }
+        UciMessage::ClassifyMove {
+            move_history,
+            player_to_move,
+        } => {
+            lock_std_and_write(shared_stdin, format!("position fen {DEFAULT_FEN} moves {move_history}"))?;
+
+            // Read and print engine output until it reports "readyok"
+            uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
+
+            // Tell the engine to find the best move (but we only care about the information given before the best move)
+            let lines = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 10", |line| {
+                line.split_whitespace().next() == Some("bestmove")
+            })?;
+
+            // Parse the final info line from the UCI reply
+            let uci_info = uci_parse_info(lines[1].trim())?;
+
+            // Flip the eval if black was moving since the eval is always from the current player's perspective
+            let player_modifier = if player_to_move == Player::Black { -1 } else { 1 };
+            let eval_after_move = match uci_info.eval {
+                UciEval::Centipawn(eval) => UciEval::Centipawn(player_modifier * eval),
+                UciEval::Mate(mate_in) => UciEval::Mate(player_modifier * mate_in),
+            };
+
+            let move_history_split = move_history.split_whitespace().collect::<Vec<_>>();
+            let move_history_without_final = move_history_split[0..(move_history_split.len() - 1)].join(" ");
+
+            // Check for the best move in this position
+            lock_std_and_write(
+                shared_stdin,
+                format!("position fen {DEFAULT_FEN} moves {move_history_without_final }"),
+            )?;
+
+            // Read and print engine output until it reports "readyok"
+            uci_is_ready_and_wait(shared_stdin, stdout_reader)?;
+
+            // Tell the engine to find the best move (but we only care about the information given before the best move)
+            let lines = uci_send_message_and_wait_for(shared_stdin, stdout_reader, "go depth 10", |line| {
+                line.split_whitespace().next() == Some("bestmove")
+            })?;
+
+            // Parse the final info line from the UCI reply
+            let uci_info = uci_parse_info(lines[1].trim())?;
+
+            let eval_after_best = match uci_info.eval {
+                UciEval::Centipawn(eval) => UciEval::Centipawn(-player_modifier * eval),
+                UciEval::Mate(mate_in) => UciEval::Mate(-player_modifier * mate_in),
+            };
+
+            let move_class = classify_move(eval_after_move, eval_after_best);
+
+            // The eval is in centipawns
+            board_tx.send(UciToBoardMessage::MoveClassification(move_class))?;
+        }
         UciMessage::CloseChannel => {
             // Close the channel
             close_uci_channel()?;
@@ -261,7 +319,9 @@ pub fn uci_send_message_and_wait_for(
         stdout_reader.read_line(&mut line)?;
 
         if !line.is_empty() {
-            print!("Engine: {line}");
+            if SHOW_UCI_OUTPUT {
+                print!("Engine: {line}");
+            }
 
             if wait_function(line.trim()) {
                 break;
