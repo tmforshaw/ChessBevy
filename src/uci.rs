@@ -55,6 +55,9 @@ pub enum UciError {
 
     #[error("Integer couldn't be parsed:\n\t{0}")]
     NumericalParseError(#[from] std::num::ParseIntError),
+
+    #[error("Move history was empty")]
+    MoveHistoryEmpty,
 }
 
 #[derive(Debug, Clone)]
@@ -175,6 +178,14 @@ pub fn match_uci_message(
             move_history,
             player_to_move,
         } => {
+            let move_history_split = move_history.split_whitespace().collect::<Vec<_>>();
+
+            if move_history_split.is_empty() {
+                return Ok(());
+            }
+
+            let move_history_without_final = move_history_split[0..(move_history_split.len() - 1)].join(" ");
+
             lock_std_and_write(shared_stdin, format!("position fen {DEFAULT_FEN} moves {move_history}"))?;
 
             // Read and print engine output until it reports "readyok"
@@ -194,9 +205,6 @@ pub fn match_uci_message(
                 UciEval::Centipawn(eval) => UciEval::Centipawn(player_modifier * eval),
                 UciEval::Mate(mate_in) => UciEval::Mate(player_modifier * mate_in),
             };
-
-            let move_history_split = move_history.split_whitespace().collect::<Vec<_>>();
-            let move_history_without_final = move_history_split[0..(move_history_split.len() - 1)].join(" ");
 
             // Check for the best move in this position
             lock_std_and_write(

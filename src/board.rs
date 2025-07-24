@@ -15,6 +15,7 @@ use crate::{
     last_move::LastMoveEvent,
     piece::PieceBundle,
     uci::{transmit_to_uci, UciMessage, ENGINE_PLAYER},
+    uci_event::{UciEvent, UciToBoardMessage},
 };
 
 #[derive(Resource, Clone, Default)]
@@ -169,9 +170,30 @@ impl BoardBevy {
         texture_atlas_query: &mut Query<&mut TextureAtlas>,
         background_ev: &mut EventWriter<BackgroundColourEvent>,
         last_move_ev: &mut EventWriter<LastMoveEvent>,
+        uci_to_board_ev: &mut EventWriter<UciEvent>,
         history_move: HistoryMove,
     ) {
         self.board.undo_move(history_move);
+
+        // Clear the classifications
+        uci_to_board_ev.send(UciEvent::new(UciToBoardMessage::ClearClassifications));
+
+        // Classify this move
+        if self.board.get_next_player() != ENGINE_PLAYER {
+            // Create a temporary move history to check the eval for this move
+            let move_history_string = self
+                .board
+                .move_history
+                .to_piece_move_string()
+                .expect("Could not get move history string to update eval");
+
+            // Ask the engine to update the eval bar
+            transmit_to_uci(UciMessage::ClassifyMove {
+                move_history: move_history_string,
+                player_to_move: self.board.get_next_player(),
+            })
+            .unwrap_or_else(|e| panic!("{e}"));
+        }
 
         let (piece_move, captured_piece, _, _castling_rights) = history_move.into();
 

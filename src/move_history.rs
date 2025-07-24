@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::{board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent, last_move::LastMoveEvent};
+use crate::{
+    board::BoardBevy, display::BackgroundColourEvent, game_end::GameEndEvent, last_move::LastMoveEvent, uci_event::UciEvent,
+};
 
 #[derive(Event)]
 pub struct MoveHistoryEvent {
@@ -20,6 +22,7 @@ pub fn move_history_event_handler(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut texture_atlas_query: Query<&mut TextureAtlas>,
+    mut uci_to_board_ev: EventWriter<UciEvent>,
 ) {
     for ev in move_history_ev.read() {
         // Traverse the history in the specified direction
@@ -43,6 +46,7 @@ pub fn move_history_event_handler(
                 &mut texture_atlas_query,
                 &mut background_ev,
                 &mut last_move_ev,
+                &mut uci_to_board_ev,
                 history_move,
             );
         } else {

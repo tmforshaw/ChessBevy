@@ -4,10 +4,8 @@ use chess_core::piece_move::PieceMove;
 
 use crate::{
     board::BoardBevy,
-    classification::{MoveClassification, MoveClassificationMarker},
-    display::{
-        board_to_pixel_coords, get_classification_texture_atlas, BackgroundColourEvent, CLASSIFICATION_SIZE_IMG, PIECE_SIZE,
-    },
+    classification::{clear_classifications, show_classification, MoveClassification, MoveClassificationMarker},
+    display::BackgroundColourEvent,
     eval_bar::CurrentEval,
     game_end::GameEndEvent,
     last_move::LastMoveEvent,
@@ -20,6 +18,7 @@ pub enum UciToBoardMessage {
     Centipawn(i32),
     Mate(i32),
     MoveClassification(MoveClassification),
+    ClearClassifications,
 }
 
 #[derive(Event, Resource, Debug, Clone)]
@@ -75,35 +74,19 @@ pub fn uci_to_board_event_handler(
                 current_eval.eval = UciEval::Mate(mate_in);
             }
             UciToBoardMessage::MoveClassification(move_class) => {
-                println!("Move Type: {move_class:?}\t\t{:?}\n", board.board.get_next_player());
-
-                // Clear any move classification entities
-                for entity in move_classification_entities.iter() {
-                    commands.entity(entity).despawn();
+                if let Err(e) = show_classification(
+                    &mut commands,
+                    &board,
+                    &move_classification_entities,
+                    &asset_server,
+                    &mut texture_atlas_layouts,
+                    move_class,
+                ) {
+                    eprintln!("Move classification error: {e}");
                 }
-
-                let Some(last_move) = board.board.move_history.get() else {
-                    continue;
-                };
-                let (last_move, _, _, _) = last_move.into();
-
-                let (x, y) = board_to_pixel_coords(last_move.to.file, last_move.to.rank);
-
-                let (texture, texture_atlas_layout) = get_classification_texture_atlas(&asset_server, &mut texture_atlas_layouts);
-
-                commands.spawn((
-                    SpriteSheetBundle {
-                        texture,
-                        atlas: TextureAtlas {
-                            layout: texture_atlas_layout,
-                            index: move_class.to_atlas_index(),
-                        },
-                        transform: Transform::from_scale(Vec3::splat((PIECE_SIZE * 0.4) / CLASSIFICATION_SIZE_IMG))
-                            .with_translation(Vec3::new(x + PIECE_SIZE / 2.25, y + PIECE_SIZE / 2.25, 1.5)),
-                        ..default()
-                    },
-                    MoveClassificationMarker,
-                ));
+            }
+            UciToBoardMessage::ClearClassifications => {
+                clear_classifications(&mut commands, &move_classification_entities);
             }
         }
     }
