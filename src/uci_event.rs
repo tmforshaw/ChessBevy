@@ -5,7 +5,9 @@ use chess_core::piece_move::PieceMove;
 use crate::{
     board::BoardBevy,
     classification::{MoveClassification, MoveClassificationMarker},
-    display::{board_to_pixel_coords, BackgroundColourEvent, PIECE_SIZE},
+    display::{
+        board_to_pixel_coords, get_classification_texture_atlas, BackgroundColourEvent, CLASSIFICATION_SIZE_IMG, PIECE_SIZE,
+    },
     eval_bar::CurrentEval,
     game_end::GameEndEvent,
     last_move::LastMoveEvent,
@@ -48,6 +50,8 @@ pub fn uci_to_board_event_handler(
     mut last_move_ev: EventWriter<LastMoveEvent>,
     mut current_eval: ResMut<CurrentEval>,
     move_classification_entities: Query<Entity, With<MoveClassificationMarker>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // Listen for messages from the Engine Listener thread, then apply moves
     for ev in ev_uci_to_board.read() {
@@ -85,14 +89,17 @@ pub fn uci_to_board_event_handler(
 
                 let (x, y) = board_to_pixel_coords(last_move.to.file, last_move.to.rank);
 
+                let (texture, texture_atlas_layout) = get_classification_texture_atlas(&asset_server, &mut texture_atlas_layouts);
+
                 commands.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::rgba(1.0, 0.3, 1.0, 1.0),
-                            ..default()
+                    SpriteSheetBundle {
+                        texture,
+                        atlas: TextureAtlas {
+                            layout: texture_atlas_layout,
+                            index: move_class.to_atlas_index(),
                         },
-                        transform: Transform::from_xyz(x + PIECE_SIZE / 2.25, y + PIECE_SIZE / 2.25, 1.5)
-                            .with_scale(Vec3::splat(PIECE_SIZE * 0.4)),
+                        transform: Transform::from_scale(Vec3::splat((PIECE_SIZE * 0.4) / CLASSIFICATION_SIZE_IMG))
+                            .with_translation(Vec3::new(x + PIECE_SIZE / 2.25, y + PIECE_SIZE / 2.25, 1.5)),
                         ..default()
                     },
                     MoveClassificationMarker,

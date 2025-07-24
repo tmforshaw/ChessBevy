@@ -13,8 +13,9 @@ pub const BOARD_SPACING: f32 = 0.;
 
 pub const PIECE_TEXTURE_FILE: &str = "ChessPiecesArray.png";
 
-pub const CLASSIFICATION_SIZE_IMG: f32 = 150.;
-pub const CLASSIFICATION_AMT: usize = 5;
+pub const CLASSIFICATION_SIZE_IMG: f32 = 128.;
+pub const CLASSIFICATION_COLUMNS: usize = 6;
+pub const CLASSIFICATION_ROWS: usize = 4;
 pub const CLASSIFICATION_TEXTURE_FILE: &str = "MoveClassification.png";
 
 #[must_use]
@@ -101,13 +102,13 @@ pub fn get_classification_texture_atlas(
     asset_server: &AssetServer,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) -> (bevy::prelude::Handle<Image>, bevy::prelude::Handle<TextureAtlasLayout>) {
-    // Texture atlas for all the pieces
+    // Texture atlas for all the badges
     (
         asset_server.load(CLASSIFICATION_TEXTURE_FILE),
         texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
             Vec2::new(CLASSIFICATION_SIZE_IMG, CLASSIFICATION_SIZE_IMG),
-            CLASSIFICATION_AMT,
-            COLOUR_AMT,
+            CLASSIFICATION_COLUMNS,
+            CLASSIFICATION_ROWS,
             None,
             None,
         )),

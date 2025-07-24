@@ -13,6 +13,21 @@ pub enum MoveClassification {
     Blunder,
 }
 
+impl MoveClassification {
+    #[must_use]
+    pub const fn to_atlas_index(&self) -> usize {
+        match self {
+            Self::Best => 2,
+            Self::Excellent => 3,
+            Self::Good => 4,
+            Self::Inaccuracy => 6,
+            Self::Mistake => 7,
+            Self::Blunder => 8,
+            Self::Miss => 9,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct MoveClassificationMarker;
 
