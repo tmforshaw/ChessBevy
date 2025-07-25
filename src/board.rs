@@ -1,6 +1,6 @@
 use std::fmt;
 
-use bevy::{prelude::*, utils::petgraph::algo::has_path_connecting};
+use bevy::prelude::*;
 
 use chess_core::{
     board::{Board, TilePos, BOARD_SIZE, PLAYERS},

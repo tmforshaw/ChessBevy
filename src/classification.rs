@@ -92,7 +92,7 @@ pub fn show_classification(
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
     move_class: MoveClassification,
 ) -> Result<(), String> {
-    println!("Move Type: {move_class:?}\t\t{:?}\n", board.board.get_next_player());
+    // println!("Move Type: {move_class:?}\t\t{:?}\n", board.board.get_next_player());
 
     clear_classifications(commands, move_classification_entities);
 
