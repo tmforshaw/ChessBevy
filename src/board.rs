@@ -1,6 +1,6 @@
 use std::fmt;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::petgraph::algo::has_path_connecting};
 
 use chess_core::{
     board::{Board, TilePos, BOARD_SIZE, PLAYERS},
@@ -51,13 +51,32 @@ impl BoardBevy {
     ) -> Option<()> {
         // Classify this move
         if self.board.get_player() != ENGINE_PLAYER {
-            let piece_move_string = [
-                String::from(" "),
-                piece_move
-                    .to_algebraic()
-                    .expect("Could not convert piece move to algebraic for update eval"),
-            ]
-            .join("");
+            // If the history move is the same as this piece move
+            let should_use_piece_string =
+                self.board
+                    .move_history
+                    .get()
+                    .map(std::convert::Into::into)
+                    .is_none_or(|(history_piece_move, _, _, _)| {
+                        if history_piece_move.from == piece_move.from && history_piece_move.to == piece_move.to {
+                            // Don't need to add piece_move_string
+                            false
+                        } else {
+                            true
+                        }
+                    });
+
+            let piece_move_string = if should_use_piece_string {
+                [
+                    String::from(" "),
+                    piece_move
+                        .to_algebraic()
+                        .expect("Could not convert piece move to algebraic for update eval"),
+                ]
+                .join("")
+            } else {
+                String::new()
+            };
 
             // Create a temporary move history to check the eval for this move
             let move_history_string = [
