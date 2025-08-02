@@ -50,19 +50,22 @@ pub fn display_board(
 
             // Create a board with alternating light and dark squares
             // Starting with a light square on A1 (Bottom Left for White)
-            commands.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: if (file + rank) % 2 == 0 { Color::WHITE } else { Color::PURPLE },
+            commands.spawn((
+                Sprite {
+                    color: if (file + rank) % 2 == 0 {
+                        Color::WHITE
+                    } else {
+                        Color::linear_rgb(0.7, 0.1, 0.5)
+                    },
                     custom_size: Some(Vec2::new(PIECE_SIZE, PIECE_SIZE)),
                     ..default()
                 },
-                transform: Transform::from_xyz(x, y, 0.),
-                ..default()
-            });
+                Transform::from_xyz(x, y, 0.),
+            ));
         }
     }
 
-    let (texture, texture_atlas_layout) = get_piece_texture_atlas(&asset_server, &mut texture_atlas_layouts);
+    let (texture, _texture_atlas_layout) = get_piece_texture_atlas(&asset_server, &mut texture_atlas_layouts);
 
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
@@ -72,7 +75,7 @@ pub fn display_board(
                     (file, rank),
                     board.board.get_piece(TilePos::new(file, rank)),
                     texture.clone(),
-                    texture_atlas_layout.clone(),
+                    // texture_atlas_layout.clone(),
                 ));
 
                 board.set_entity(TilePos::new(file, rank), Some(entity.id()));
@@ -81,6 +84,7 @@ pub fn display_board(
     }
 }
 
+#[allow(clippy::cast_sign_loss)]
 pub fn get_piece_texture_atlas(
     asset_server: &AssetServer,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -89,15 +93,16 @@ pub fn get_piece_texture_atlas(
     (
         asset_server.load(PIECE_TEXTURE_FILE),
         texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-            Vec2::new(PIECE_SIZE_IMG, PIECE_SIZE_IMG),
-            PIECE_AMT,
-            COLOUR_AMT,
+            UVec2::new(PIECE_SIZE_IMG as u32, PIECE_SIZE_IMG as u32),
+            PIECE_AMT as u32,
+            COLOUR_AMT as u32,
             None,
             None,
         )),
     )
 }
 
+#[allow(clippy::cast_sign_loss)]
 pub fn get_classification_texture_atlas(
     asset_server: &AssetServer,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -106,9 +111,9 @@ pub fn get_classification_texture_atlas(
     (
         asset_server.load(CLASSIFICATION_TEXTURE_FILE),
         texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-            Vec2::new(CLASSIFICATION_SIZE_IMG, CLASSIFICATION_SIZE_IMG),
-            CLASSIFICATION_COLUMNS,
-            CLASSIFICATION_ROWS,
+            UVec2::new(CLASSIFICATION_SIZE_IMG as u32, CLASSIFICATION_SIZE_IMG as u32),
+            CLASSIFICATION_COLUMNS as u32,
+            CLASSIFICATION_ROWS as u32,
             None,
             None,
         )),
@@ -135,8 +140,8 @@ impl BackgroundColourEvent {
     pub const fn new_from_player(player: Player) -> Self {
         Self {
             colour: match player {
-                Player::White => Color::rgb(1., 1., 1.),
-                Player::Black => Color::rgb(0., 0., 0.),
+                Player::White => Color::linear_rgb(1., 1., 1.),
+                Player::Black => Color::linear_rgb(0., 0., 0.),
             },
         }
     }

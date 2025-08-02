@@ -24,7 +24,7 @@ pub fn piece_move_event_handler(
     mut commands: Commands,
     mut ev_piece_move: EventReader<PieceMoveEvent>,
     mut transform_query: Query<&mut Transform>,
-    mut texture_atlas_query: Query<&mut TextureAtlas>,
+    mut sprites: Query<&mut Sprite>,
     mut board: ResMut<BoardBevy>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
     mut game_end_ev: EventWriter<GameEndEvent>,
@@ -46,7 +46,7 @@ pub fn piece_move_event_handler(
                 .apply_move(
                     &mut commands,
                     &mut transform_query,
-                    &mut texture_atlas_query,
+                    &mut sprites,
                     &mut background_ev,
                     &mut game_end_ev,
                     &mut last_move_ev,

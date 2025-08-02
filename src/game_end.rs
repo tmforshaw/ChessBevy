@@ -21,11 +21,11 @@ pub fn game_end_event_handler(mut ev_game_end: EventReader<GameEndEvent>, mut ba
         if let Some(winning_player) = ev.winning_player {
             // Checkmate
             println!("Player {winning_player:?} wins by Checkmate");
-            background_ev.send(BackgroundColourEvent::new(Color::rgb(1.0, 0.0, 1.0)));
+            background_ev.write(BackgroundColourEvent::new(Color::linear_rgb(1.0, 0.0, 1.0)));
         } else {
             // Stalemate
             println!("Game ends in stalemate");
-            background_ev.send(BackgroundColourEvent::new(Color::rgb(0.0, 1.0, 1.0)));
+            background_ev.write(BackgroundColourEvent::new(Color::linear_rgb(0.0, 1.0, 1.0)));
         }
     }
 }

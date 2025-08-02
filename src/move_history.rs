@@ -21,7 +21,7 @@ pub fn move_history_event_handler(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut texture_atlas_query: Query<&mut TextureAtlas>,
+    mut sprites: Query<&mut Sprite>,
     mut uci_to_board_ev: EventWriter<UciEvent>,
 ) {
     for ev in move_history_ev.read() {
@@ -43,7 +43,7 @@ pub fn move_history_event_handler(
                 &asset_server,
                 &mut texture_atlas_layouts,
                 &mut transform_query,
-                &mut texture_atlas_query,
+                &mut sprites,
                 &mut background_ev,
                 &mut last_move_ev,
                 &mut uci_to_board_ev,
@@ -55,7 +55,7 @@ pub fn move_history_event_handler(
             board.apply_move(
                 &mut commands,
                 &mut transform_query,
-                &mut texture_atlas_query,
+                &mut sprites,
                 &mut background_ev,
                 &mut game_end_ev,
                 &mut last_move_ev,

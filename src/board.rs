@@ -43,7 +43,7 @@ impl BoardBevy {
         &mut self,
         commands: &mut Commands,
         transform_query: &mut Query<&mut Transform>,
-        texture_atlas_query: &mut Query<&mut TextureAtlas>,
+        sprites: &mut Query<&mut Sprite>,
         background_ev: &mut EventWriter<BackgroundColourEvent>,
         game_end_ev: &mut EventWriter<GameEndEvent>,
         last_move_ev: &mut EventWriter<LastMoveEvent>,
@@ -145,10 +145,14 @@ impl BoardBevy {
                 let piece_entity = self
                     .get_entity(piece_move.from)
                     .unwrap_or_else(|| panic!("Entity not found for piece at pos {}", piece_move.from));
-                let mut texture_atlas = texture_atlas_query
-                    .get_mut(piece_entity)
-                    .expect("Could not find piece entity in texture atlas");
-                texture_atlas.index = promoted_to.to_bitboard_index();
+
+                let mut sprite = sprites.get_mut(piece_entity).expect("Could not find piece entity sprite");
+
+                if let Some(ref mut atlas) = sprite.texture_atlas {
+                    atlas.index = promoted_to.to_bitboard_index();
+                } else {
+                    panic!("Entity {piece_entity:?} has no texture atlas!");
+                }
             }
         }
 
@@ -160,17 +164,17 @@ impl BoardBevy {
         self.move_entity(piece_move);
 
         // Send a LastMoveEvent for this move
-        last_move_ev.send(LastMoveEvent);
+        last_move_ev.write(LastMoveEvent);
 
         // Check if this move has caused the game to end
         if let Some(winning_player) = self.board.has_game_ended() {
             // Game ended via checkmate or stalemate
-            game_end_ev.send(GameEndEvent::new(winning_player));
+            game_end_ev.write(GameEndEvent::new(winning_player));
             None
         } else {
             // self.board.next_player(); // Already performed next player in Board apply_move
             // Change background colour to show current player
-            background_ev.send(BackgroundColourEvent::new_from_player(self.board.get_player()));
+            background_ev.write(BackgroundColourEvent::new_from_player(self.board.get_player()));
 
             Some(())
         }
@@ -186,7 +190,7 @@ impl BoardBevy {
         asset_server: &Res<AssetServer>,
         texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
         transform_query: &mut Query<&mut Transform>,
-        texture_atlas_query: &mut Query<&mut TextureAtlas>,
+        sprites: &mut Query<&mut Sprite>,
         background_ev: &mut EventWriter<BackgroundColourEvent>,
         last_move_ev: &mut EventWriter<LastMoveEvent>,
         uci_to_board_ev: &mut EventWriter<UciEvent>,
@@ -195,7 +199,7 @@ impl BoardBevy {
         self.board.undo_move(history_move);
 
         // Clear the classifications
-        uci_to_board_ev.send(UciEvent::new(UciToBoardMessage::ClearClassifications));
+        uci_to_board_ev.write(UciEvent::new(UciToBoardMessage::ClearClassifications));
 
         // Classify this move
         if self.board.get_next_player() != ENGINE_PLAYER {
@@ -240,14 +244,14 @@ impl BoardBevy {
                         piece_move.to
                     };
 
-                    let (texture, texture_atlas_layout) = get_piece_texture_atlas(asset_server, texture_atlas_layouts);
+                    let (texture, _texture_atlas_layout) = get_piece_texture_atlas(asset_server, texture_atlas_layouts);
 
                     // Create new entity for the captured piece
                     let captured_entity = commands.spawn(PieceBundle::new(
                         captured_piece_tile.into(),
                         captured_piece,
                         texture,
-                        texture_atlas_layout,
+                        // texture_atlas_layout,
                     ));
 
                     // Update the entities array to make it aware of the spawned piece
@@ -296,18 +300,22 @@ impl BoardBevy {
                 let piece_entity = self
                     .get_entity(piece_move.from)
                     .unwrap_or_else(|| panic!("Entity not found for piece at pos {}", piece_move.from));
-                let mut texture_atlas = texture_atlas_query
-                    .get_mut(piece_entity)
-                    .expect("Could not find piece entity in texture atlas");
-                texture_atlas.index = player_pawn.to_bitboard_index();
+
+                let mut sprite = sprites.get_mut(piece_entity).expect("Could not find piece entity sprite");
+
+                if let Some(ref mut atlas) = sprite.texture_atlas {
+                    atlas.index = player_pawn.to_bitboard_index();
+                } else {
+                    panic!("Entity {piece_entity:?} has no texture atlas!");
+                }
             }
         }
 
         // Change background colour to show current player
-        background_ev.send(BackgroundColourEvent::new_from_player(self.board.get_player()));
+        background_ev.write(BackgroundColourEvent::new_from_player(self.board.get_player()));
 
         // Send a LastMoveEvent for this move
-        last_move_ev.send(LastMoveEvent);
+        last_move_ev.write(LastMoveEvent);
     }
 
     pub fn move_piece_and_entity(&mut self, piece_move: PieceMove) {

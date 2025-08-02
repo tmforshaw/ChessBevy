@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_mod_picking::prelude::*;
 
 use chess_core::{board::TilePos, piece::Piece, piece_move::PieceMove};
 
@@ -9,49 +8,42 @@ use crate::{
     possible_moves::PossibleMoveDisplayEvent,
 };
 
-#[derive(Bundle)]
-pub struct PieceBundle {
-    pub sprite: SpriteSheetBundle,
-    on_drag_start_listener: On<Pointer<DragStart>>,
-    on_drag_listener: On<Pointer<Drag>>,
-    on_drag_end_listener: On<Pointer<DragEnd>>,
-}
+pub struct PieceBundle;
 
 impl PieceBundle {
     /// # Panics
     /// Panics if ``Piece::None`` used as a bitboard index for the texture atlas
+    #[allow(clippy::new_ret_no_self)]
+    #[must_use]
     pub fn new(
         (file, rank): (u32, u32),
         key: Piece,
         texture: Handle<Image>,
-        texture_atlas_layout: Handle<TextureAtlasLayout>,
-    ) -> Self {
+        // texture_atlas_layout: Handle<TextureAtlasLayout>,
+    ) -> (Sprite, Transform, GlobalTransform) {
         assert!(key != Piece::None, "{key:?} used as bitboard index");
 
         let (x, y) = board_to_pixel_coords(file, rank);
 
         // Create a bundle with this piece's spritesheet and some listeners for picking up the pieces
-        Self {
-            sprite: SpriteSheetBundle {
-                texture,
-                atlas: TextureAtlas {
-                    layout: texture_atlas_layout,
-                    index: key.to_bitboard_index(),
-                },
-                transform: Transform::from_scale(Vec3::splat(PIECE_SIZE / PIECE_SIZE_IMG)).with_translation(Vec3::new(x, y, 1.)),
+        (
+            // texture_atlas_layout, // Handle<TextureAtlasLayout>
+            Sprite {
+                image: texture,
+                custom_size: None,
+                color: Color::WHITE,
                 ..default()
             },
-            on_drag_start_listener: On::<Pointer<DragStart>>::run(on_piece_drag_start),
-            on_drag_listener: On::<Pointer<Drag>>::run(on_piece_drag),
-            on_drag_end_listener: On::<Pointer<DragEnd>>::run(on_piece_drag_end),
-        }
+            Transform::from_scale(Vec3::splat(PIECE_SIZE / PIECE_SIZE_IMG)).with_translation(Vec3::new(x, y, 1.)),
+            GlobalTransform::default(),
+        )
     }
 }
 
 /// # Panics
 /// Panics if the dragged entity's transform cannot be found
-fn on_piece_drag_start(
-    mut ev_drag: EventReader<Pointer<Drag>>,
+pub fn on_piece_drag_start(
+    mut ev_drag: EventReader<Pointer<DragStart>>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
     mut transform_query: Query<&mut Transform>,
 ) {
@@ -63,7 +55,7 @@ fn on_piece_drag_start(
         let mouse_pos = transform.translation.xy() * Vec2::new(1., -1.);
         let (file, rank) = pixel_to_board_coords(mouse_pos.x, -mouse_pos.y);
 
-        ev_draw_moves.send(PossibleMoveDisplayEvent {
+        ev_draw_moves.write(PossibleMoveDisplayEvent {
             from: TilePos::new(file, rank),
             show: true,
         });
@@ -73,7 +65,7 @@ fn on_piece_drag_start(
 /// Move the piece when it is dragged by a mouse
 /// # Panics
 /// Panics if the dragged entity's transform cannot be found
-fn on_piece_drag(mut drag_er: EventReader<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
+pub fn on_piece_drag(mut drag_er: EventReader<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
     for drag_data in drag_er.read() {
         let mut transform = transform_query
             .get_mut(drag_data.target)
@@ -87,7 +79,7 @@ fn on_piece_drag(mut drag_er: EventReader<Pointer<Drag>>, mut transform_query: Q
 /// Finalise the movement of a piece, either snapping it to the grid, or by moving it back
 /// # Panics
 /// Panics if the dragged entity's transform cannot be found
-fn on_piece_drag_end(
+pub fn on_piece_drag_end(
     mut drag_er: EventReader<Pointer<DragEnd>>,
     mut transform_query: Query<&mut Transform>,
     mut ev_draw_moves: EventWriter<PossibleMoveDisplayEvent>,
@@ -109,12 +101,12 @@ fn on_piece_drag_end(
             transform.translation.y + PIECE_SIZE / 2.,
         );
 
-        ev_draw_moves.send(PossibleMoveDisplayEvent {
+        ev_draw_moves.write(PossibleMoveDisplayEvent {
             from: TilePos::new(file, rank),
             show: false,
         });
 
-        ev_piece_move.send(PieceMoveEvent {
+        ev_piece_move.write(PieceMoveEvent {
             piece_move: PieceMove::new(TilePos::new(ori_file, ori_rank), TilePos::new(file, rank)),
             entity: drag_data.target,
         });

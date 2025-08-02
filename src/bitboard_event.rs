@@ -54,14 +54,11 @@ pub fn bitboard_event_handler(
                 let (x, y) = board_to_pixel_coords(pos.file, pos.rank);
 
                 commands.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::rgba(1., 0., 0., 0.75),
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                    Sprite {
+                        color: Color::linear_rgba(1., 0., 0., 0.75),
                         ..default()
                     },
+                    Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                     BitBoardMarker,
                 ));
             }
@@ -106,14 +103,11 @@ pub fn bitboard_event_handler(
 
             for (x, y) in xy {
                 commands.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::rgba(1., 0., 0., 0.75),
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                    Sprite {
+                        color: Color::linear_rgba(1., 0., 0., 0.75),
                         ..default()
                     },
+                    Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                     BitBoardMarker,
                 ));
             }

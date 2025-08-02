@@ -44,7 +44,7 @@ pub fn uci_to_board_event_handler(
     mut board: ResMut<BoardBevy>,
     mut background_ev: EventWriter<BackgroundColourEvent>,
     mut transform_query: Query<&mut Transform>,
-    mut texture_atlas_query: Query<&mut TextureAtlas>,
+    mut sprites: Query<&mut Sprite>,
     mut game_end_ev: EventWriter<GameEndEvent>,
     mut last_move_ev: EventWriter<LastMoveEvent>,
     mut current_eval: ResMut<CurrentEval>,
@@ -60,7 +60,7 @@ pub fn uci_to_board_event_handler(
                 board.apply_move(
                     &mut commands,
                     &mut transform_query,
-                    &mut texture_atlas_query,
+                    &mut sprites,
                     &mut background_ev,
                     &mut game_end_ev,
                     &mut last_move_ev,
@@ -96,6 +96,6 @@ pub fn uci_to_board_event_handler(
 #[allow(clippy::needless_pass_by_value)]
 pub fn process_uci_to_board_threads(tx_rx: Res<UciToBoardReceiver>, mut uci_to_board_ev: EventWriter<UciEvent>) {
     for ev in tx_rx.0.try_iter() {
-        uci_to_board_ev.send(UciEvent::new(ev));
+        uci_to_board_ev.write(UciEvent::new(ev));
     }
 }

@@ -38,14 +38,11 @@ pub fn last_move_event_handler(
         // Spawn an entity for the from and to positions of this piece move
         for (x, y) in xy {
             commands.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::rgba(0.8, 0.8, 0.1, 1.0),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(x, y, 0.5).with_scale(Vec3::splat(PIECE_SIZE * 1.0)),
+                Sprite {
+                    color: Color::linear_rgba(0.8, 0.8, 0.1, 1.0),
                     ..default()
                 },
+                Transform::from_xyz(x, y, 0.5).with_scale(Vec3::splat(PIECE_SIZE * 1.0)),
                 LastMoveMarker,
             ));
         }

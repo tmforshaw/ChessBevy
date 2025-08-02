@@ -106,16 +106,19 @@ pub fn show_classification(
     let (texture, texture_atlas_layout) = get_classification_texture_atlas(asset_server, texture_atlas_layouts);
 
     commands.spawn((
-        SpriteSheetBundle {
-            texture,
-            atlas: TextureAtlas {
+        Sprite {
+            image: texture,
+            texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas_layout,
                 index: move_class.to_atlas_index(),
-            },
-            transform: Transform::from_scale(Vec3::splat((PIECE_SIZE * 0.4) / CLASSIFICATION_SIZE_IMG))
-                .with_translation(Vec3::new(x + PIECE_SIZE / 2.25, y + PIECE_SIZE / 2.25, 1.5)),
+            }),
             ..default()
         },
+        Transform::from_scale(Vec3::splat((PIECE_SIZE * 0.4) / CLASSIFICATION_SIZE_IMG)).with_translation(Vec3::new(
+            x + PIECE_SIZE / 2.25,
+            y + PIECE_SIZE / 2.25,
+            1.5,
+        )),
         MoveClassificationMarker,
     ));
 

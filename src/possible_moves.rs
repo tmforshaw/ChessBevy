@@ -7,7 +7,7 @@ use crate::{
     display::{board_to_pixel_coords, PIECE_SIZE},
 };
 
-const POSSIBLE_MOVE_COLOUR: Color = Color::rgba(0., 1., 0., 0.75);
+const POSSIBLE_MOVE_COLOUR: Color = Color::linear_rgba(0., 1., 0., 0.75);
 
 #[derive(Event, Debug)]
 pub struct PossibleMoveDisplayEvent {
@@ -31,14 +31,11 @@ pub fn possible_move_event_handler(
                 let (x, y) = board_to_pixel_coords(pos.to.file, pos.to.rank);
 
                 commands.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: POSSIBLE_MOVE_COLOUR,
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
+                    Sprite {
+                        color: POSSIBLE_MOVE_COLOUR,
                         ..default()
                     },
+                    Transform::from_xyz(x, y, 2.).with_scale(Vec3::splat(PIECE_SIZE * 0.75)),
                     PossibleMoveMarker,
                 ));
             }

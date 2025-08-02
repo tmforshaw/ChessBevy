@@ -6,17 +6,17 @@
 #![allow(clippy::cast_possible_truncation)]
 
 use bevy::prelude::*;
-use bevy_mod_picking::prelude::*;
 
 use crate::{
     bitboard_event::{bitboard_event_handler, BitBoardDisplayEvent},
     board::BoardBevy,
     display::{background_colour_event_handler, display_board, BackgroundColourEvent},
-    eval_bar::{create_eval_bar, update_eval_bar, CurrentEval},
+    eval_bar::CurrentEval,
     game_end::{game_end_event_handler, GameEndEvent},
     keyboard::{keyboard_event_handler, KeyboardState},
     last_move::{last_move_event_handler, LastMoveEvent},
     move_history::{move_history_event_handler, MoveHistoryEvent},
+    piece::{on_piece_drag, on_piece_drag_end, on_piece_drag_start},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
     possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
     uci::communicate_to_uci,
@@ -54,7 +54,7 @@ fn main() {
                     ..default()
                 })
                 .build(),
-            DefaultPickingPlugins,
+            // DefaultPickingPlugins,
         ))
         .add_event::<PieceMoveEvent>()
         .add_event::<BitBoardDisplayEvent>()
@@ -68,7 +68,7 @@ fn main() {
         .init_resource::<KeyboardState>()
         .init_resource::<CurrentEval>()
         .insert_resource(communicate_to_uci())
-        .add_systems(Startup, (setup, display_board, create_eval_bar))
+        .add_systems(Startup, (setup, display_board))
         .add_systems(PreUpdate, process_uci_to_board_threads)
         .add_systems(
             Update,
@@ -82,7 +82,10 @@ fn main() {
                 game_end_event_handler,
                 uci_to_board_event_handler,
                 last_move_event_handler,
-                update_eval_bar,
+                // update_eval_bar,
+                on_piece_drag_start,
+                on_piece_drag,
+                on_piece_drag_end,
             ),
         )
         .run();
@@ -90,7 +93,7 @@ fn main() {
 
 #[allow(clippy::needless_pass_by_value)]
 fn setup(mut commands: Commands, board: Res<BoardBevy>, mut background_ev: EventWriter<BackgroundColourEvent>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2d, Camera::default(), Transform::default(), GlobalTransform::default()));
 
-    background_ev.send(BackgroundColourEvent::new_from_player(board.board.get_player()));
+    background_ev.write(BackgroundColourEvent::new_from_player(board.board.get_player()));
 }
