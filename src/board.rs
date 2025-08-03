@@ -244,15 +244,16 @@ impl BoardBevy {
                         piece_move.to
                     };
 
-                    let (texture, _texture_atlas_layout) = get_piece_texture_atlas(asset_server, texture_atlas_layouts);
+                    let (texture, texture_atlas_layout) = get_piece_texture_atlas(asset_server, texture_atlas_layouts);
 
                     // Create new entity for the captured piece
-                    let captured_entity = commands.spawn(PieceBundle::new(
+                    let captured_entity = PieceBundle::spawn(
+                        commands,
                         captured_piece_tile.into(),
                         captured_piece,
                         texture,
-                        // texture_atlas_layout,
-                    ));
+                        texture_atlas_layout,
+                    );
 
                     // Update the entities array to make it aware of the spawned piece
                     self.set_entity(captured_piece_tile, Some(captured_entity.id()));

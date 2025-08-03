@@ -56,18 +56,19 @@ pub const fn classify_move(evaluation_after: UciEval, evaluation_best: UciEval) 
         (UciEval::Mate(_), UciEval::Centipawn(_)) => MoveClassification::Blunder,
         // Either gave opponent mate when player had mate, or continued this player's mating sequence
         (UciEval::Mate(mate_after), UciEval::Mate(mate_best)) => {
+            // TODO this doesnt work (mate_after == 1 when mate has been completed)
             // Check if the opponent was given mate instead of this player
-            if mate_after.signum() == mate_best.signum() {
-                let delta = (mate_best - mate_after).unsigned_abs();
+            // if mate_after != 0 && mate_after.signum() == mate_best.signum() {
+            let delta = (mate_best - mate_after).unsigned_abs();
 
-                match delta {
-                    0 => MoveClassification::Best,
-                    1 => MoveClassification::Excellent,
-                    _ => MoveClassification::Good,
-                }
-            } else {
-                MoveClassification::Blunder
+            match delta {
+                0 => MoveClassification::Best,
+                1 => MoveClassification::Excellent,
+                _ => MoveClassification::Good,
             }
+            // } else {
+            //     MoveClassification::Blunder
+            // }
         }
     }
 }

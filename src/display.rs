@@ -55,7 +55,7 @@ pub fn display_board(
                     color: if (file + rank) % 2 == 0 {
                         Color::WHITE
                     } else {
-                        Color::linear_rgb(0.7, 0.1, 0.5)
+                        Color::linear_rgb(0.4, 0.3, 0.8)
                     },
                     custom_size: Some(Vec2::new(PIECE_SIZE, PIECE_SIZE)),
                     ..default()
@@ -65,18 +65,19 @@ pub fn display_board(
         }
     }
 
-    let (texture, _texture_atlas_layout) = get_piece_texture_atlas(&asset_server, &mut texture_atlas_layouts);
+    let (texture, texture_atlas_layout) = get_piece_texture_atlas(&asset_server, &mut texture_atlas_layouts);
 
     // Spawn all the pieces where they are in the board.tiles array
     for rank in 0..BOARD_SIZE {
         for file in 0..BOARD_SIZE {
             if board.board.get_piece(TilePos::new(file, rank)) != Piece::None {
-                let entity = commands.spawn(PieceBundle::new(
+                let entity = PieceBundle::spawn(
+                    &mut commands,
                     (file, rank),
                     board.board.get_piece(TilePos::new(file, rank)),
                     texture.clone(),
-                    // texture_atlas_layout.clone(),
-                ));
+                    texture_atlas_layout.clone(),
+                );
 
                 board.set_entity(TilePos::new(file, rank), Some(entity.id()));
             }

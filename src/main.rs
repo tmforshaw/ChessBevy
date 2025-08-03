@@ -11,12 +11,11 @@ use crate::{
     bitboard_event::{bitboard_event_handler, BitBoardDisplayEvent},
     board::BoardBevy,
     display::{background_colour_event_handler, display_board, BackgroundColourEvent},
-    eval_bar::CurrentEval,
+    eval_bar::{create_eval_bar, update_eval_bar, CurrentEval},
     game_end::{game_end_event_handler, GameEndEvent},
     keyboard::{keyboard_event_handler, KeyboardState},
     last_move::{last_move_event_handler, LastMoveEvent},
     move_history::{move_history_event_handler, MoveHistoryEvent},
-    piece::{on_piece_drag, on_piece_drag_end, on_piece_drag_start},
     piece_move::{piece_move_event_handler, PieceMoveEvent},
     possible_moves::{possible_move_event_handler, PossibleMoveDisplayEvent},
     uci::communicate_to_uci,
@@ -41,21 +40,18 @@ pub mod uci_info;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins
-                .set(ImagePlugin::default_nearest())
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "Chez.cum".into(),
-                        resolution: (1920., 1280.).into(),
-                        resizable: true,
-                        ..default()
-                    }),
+        .add_plugins((DefaultPlugins
+            .set(ImagePlugin::default_nearest())
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Chez.cum".into(),
+                    resolution: (1920., 1280.).into(),
+                    resizable: true,
                     ..default()
-                })
-                .build(),
-            // DefaultPickingPlugins,
-        ))
+                }),
+                ..default()
+            })
+            .build(),))
         .add_event::<PieceMoveEvent>()
         .add_event::<BitBoardDisplayEvent>()
         .add_event::<PossibleMoveDisplayEvent>()
@@ -68,7 +64,7 @@ fn main() {
         .init_resource::<KeyboardState>()
         .init_resource::<CurrentEval>()
         .insert_resource(communicate_to_uci())
-        .add_systems(Startup, (setup, display_board))
+        .add_systems(Startup, (setup, display_board, create_eval_bar))
         .add_systems(PreUpdate, process_uci_to_board_threads)
         .add_systems(
             Update,
@@ -82,10 +78,7 @@ fn main() {
                 game_end_event_handler,
                 uci_to_board_event_handler,
                 last_move_event_handler,
-                // update_eval_bar,
-                on_piece_drag_start,
-                on_piece_drag,
-                on_piece_drag_end,
+                update_eval_bar,
             ),
         )
         .run();
