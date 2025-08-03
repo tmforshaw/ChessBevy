@@ -24,45 +24,6 @@ const BAR_HEIGHT: Val = Val::Px(50.0);
 /// Panics if transmitting to the UCI cant be done
 #[allow(clippy::needless_pass_by_value)]
 pub fn create_eval_bar(mut commands: Commands, board: Res<BoardBevy>) {
-    // Spawn the Eval bar
-    // commands
-    //     .spawn(NodeBundle {
-    //         style: Style {
-    //             width: Val::Percent(100.),
-    //             height: BAR_HEIGHT,
-    //             ..default()
-    //         },
-    //         background_color: BackgroundColor(Color::BLACK),
-    //         ..default()
-    //     })
-    //     .with_children(|parent| {
-    //         // White's part
-    //         parent
-    //             .spawn(NodeBundle {
-    //                 style: Style {
-    //                     width: Val::Percent(50.),
-    //                     height: BAR_HEIGHT,
-    //                     ..default()
-    //                 },
-    //                 background_color: BackgroundColor(Color::WHITE),
-    //                 ..default()
-    //             })
-    //             .insert(EvalBarWhite);
-
-    //         // Black's part
-    //         parent
-    //             .spawn(NodeBundle {
-    //                 style: Style {
-    //                     width: Val::Percent(50.),
-    //                     height: BAR_HEIGHT,
-    //                     ..default()
-    //                 },
-    //                 background_color: BackgroundColor(Color::BLACK),
-    //                 ..default()
-    //             })
-    //             .insert(EvalBarBlack);
-    //     });
-
     commands
         .spawn((
             Node {

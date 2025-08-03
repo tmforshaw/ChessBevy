@@ -172,7 +172,6 @@ impl BoardBevy {
             game_end_ev.write(GameEndEvent::new(winning_player));
             None
         } else {
-            // self.board.next_player(); // Already performed next player in Board apply_move
             // Change background colour to show current player
             background_ev.write(BackgroundColourEvent::new_from_player(self.board.get_player()));
 
