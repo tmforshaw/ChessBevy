@@ -85,8 +85,27 @@ fn main() {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn setup(mut commands: Commands, board: Res<BoardBevy>, mut background_ev: EventWriter<BackgroundColourEvent>) {
-    commands.spawn((Camera2d, Camera::default(), Transform::default(), GlobalTransform::default()));
+fn setup(
+    mut commands: Commands,
+    board: Res<BoardBevy>,
+    mut background_ev: EventWriter<BackgroundColourEvent>,
+    windows: Query<&Window>,
+) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let scale_factor = window.scale_factor();
+    println!("Scale factor: {scale_factor}");
+    let mut projection = OrthographicProjection::default_2d();
+    projection.scale *= scale_factor;
+
+    commands.spawn((
+        Camera2d,
+        Camera::default(),
+        Projection::custom(projection),
+        Transform::default(),
+        GlobalTransform::default(),
+    ));
 
     background_ev.write(BackgroundColourEvent::new_from_player(board.board.get_player()));
 }
